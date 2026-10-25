@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HazFocus is a kanban style task and productivity app built with html, css and javascript.">
+  <title>Dashboard | HazFocus</title>
+
+  <!-- favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+
+  <!-- google fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- font awesome icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- main styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- set the theme early so the page does not flash white in dark mode -->
+  <script>
+    try {
+      var savedTheme = localStorage.getItem("HazFocus-theme");
+      if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    } catch (error) {}
+  </script>
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- dark overlay for mobile menu -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="sidebar">
+      <div class="logo">
+        <span class="logo-icon"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
+        <span class="logo-text">HazFocus</span>
+      </div>
+
+      <nav class="nav" aria-label="main navigation">
+        <button type="button" class="nav-item active" data-view="dashboard">
+          <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button type="button" class="nav-item" data-view="all">
+          <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+          <span class="nav-label">All tasks</span>
+          <span class="nav-count" id="nav-count-all">0</span>
+        </button>
+        <button type="button" class="nav-item" data-view="today">
+          <i class="fa-regular fa-calendar-check" aria-hidden="true"></i>
+          <span class="nav-label">Today</span>
+          <span class="nav-count" id="nav-count-today">0</span>
+        </button>
+        <button type="button" class="nav-item" data-view="upcoming">
+          <i class="fa-regular fa-clock" aria-hidden="true"></i>
+          <span class="nav-label">Upcoming</span>
+          <span class="nav-count" id="nav-count-upcoming">0</span>
+        </button>
+        <button type="button" class="nav-item" data-view="completed">
+          <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
+          <span class="nav-label">Completed</span>
+          <span class="nav-count" id="nav-count-completed">0</span>
+        </button>
+      </nav>
+
+      <!-- categories -->
+      <div class="sidebar-section">
+        <p class="sidebar-heading">Categories</p>
+        <div class="category-list">
+          <button type="button" class="category-item" data-category="personal">
+            <span class="category-dot dot-personal"></span>
+            <span class="nav-label">Personal</span>
+            <span class="nav-count" data-category-count="personal">0</span>
+          </button>
+          <button type="button" class="category-item" data-category="study">
+            <span class="category-dot dot-study"></span>
+            <span class="nav-label">Study</span>
+            <span class="nav-count" data-category-count="study">0</span>
+          </button>
+          <button type="button" class="category-item" data-category="work">
+            <span class="category-dot dot-work"></span>
+            <span class="nav-label">Work</span>
+            <span class="nav-count" data-category-count="work">0</span>
+          </button>
+          <button type="button" class="category-item" data-category="coding">
+            <span class="category-dot dot-coding"></span>
+            <span class="nav-label">Coding</span>
+            <span class="nav-count" data-category-count="coding">0</span>
+          </button>
+          <button type="button" class="category-item" data-category="fitness">
+            <span class="category-dot dot-fitness"></span>
+            <span class="nav-label">Fitness</span>
+            <span class="nav-count" data-category-count="fitness">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- settings -->
+      <div class="sidebar-bottom">
+        <button type="button" class="nav-item" data-view="settings">
+          <i class="fa-solid fa-gear" aria-hidden="true"></i>
+          <span class="nav-label">Settings</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- main area -->
+    <div class="main">
+
+      <!-- header -->
+      <header class="header">
+        <div class="header-left">
+          <button type="button" class="icon-btn menu-btn" id="menu-btn" aria-label="open menu" aria-controls="sidebar" aria-expanded="false">
+            <i class="fa-solid fa-bars" aria-hidden="true"></i>
+          </button>
+          <div class="title-block">
+            <h1 class="page-title" id="page-title">Dashboard</h1>
+            <p class="page-subtitle"><span id="greeting-text"></span> &middot; <span id="current-date"></span></p>
+          </div>
+        </div>
+
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="search-input" placeholder="Search tasks..." aria-label="search tasks" autocomplete="off">
+        </div>
+
+        <div class="header-right">
+          <button type="button" class="icon-btn" id="theme-btn" aria-label="switch to dark theme">
+            <i class="fa-solid fa-moon" id="theme-icon" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="btn btn-primary" id="add-task-btn" aria-label="add task">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span class="btn-text">Add task</span>
+          </button>
+          <div class="profile">
+            <span class="avatar" aria-hidden="true">HZ</span>
+            <span class="profile-name">HAZIM AQIL</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- page content -->
+      <main class="content">
+
+        <!-- dashboard overview -->
+        <section class="dashboard" id="dashboard-section" aria-label="dashboard overview">
+          <div class="summary-grid">
+            <article class="summary-card">
+              <div class="summary-icon icon-blue"><i class="fa-solid fa-list-check" aria-hidden="true"></i></div>
+              <div>
+                <p class="summary-label">Total tasks</p>
+                <p class="summary-value" id="stat-total">0</p>
+              </div>
+            </article>
+            <article class="summary-card">
+              <div class="summary-icon icon-green"><i class="fa-solid fa-check" aria-hidden="true"></i></div>
+              <div>
+                <p class="summary-label">Completed</p>
+                <p class="summary-value" id="stat-completed">0</p>
+              </div>
+            </article>
+            <article class="summary-card">
+              <div class="summary-icon icon-purple"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></div>
+              <div>
+                <p class="summary-label">Pending</p>
+                <p class="summary-value" id="stat-pending">0</p>
+              </div>
+            </article>
+            <article class="summary-card">
+              <div class="summary-icon icon-red"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+              <div>
+                <p class="summary-label">Overdue</p>
+                <p class="summary-value" id="stat-overdue">0</p>
+              </div>
+            </article>
+          </div>
+
+          <!-- progress -->
+          <article class="progress-card">
+            <div class="progress-info">
+              <div>
+                <h2 class="card-title">Progress</h2>
+                <p class="progress-text" id="progress-text">0 of 0 tasks completed</p>
+                <p class="productivity-message" id="productivity-message"></p>
+              </div>
+              <p class="progress-percent" id="progress-percent">0%</p>
+            </div>
+            <div class="progress-bar" id="progress-bar" role="progressbar" aria-label="task completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </article>
+        </section>
+
+        <!-- filters and sorting -->
+        <section class="toolbar" id="toolbar" aria-label="filters and sorting">
+          <div class="filter-group">
+            <label for="filter-status">Status</label>
+            <select id="filter-status">
+              <option value="all">All</option>
+              <option value="todo">To do</option>
+              <option value="inprogress">In progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-priority">Priority</label>
+            <select id="filter-priority">
+              <option value="all">All</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-category">Category</label>
+            <select id="filter-category">
+              <option value="all">All</option>
+              <option value="personal">Personal</option>
+              <option value="study">Study</option>
+              <option value="work">Work</option>
+              <option value="coding">Coding</option>
+              <option value="fitness">Fitness</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-due">Due date</label>
+            <select id="filter-due">
+              <option value="all">All</option>
+              <option value="today">Today</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="sort-select">Sort by</label>
+            <select id="sort-select">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="due">Due date</option>
+              <option value="priority">Priority</option>
+              <option value="alphabetical">A to Z</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-ghost" id="clear-filters-btn">
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            <span>Clear</span>
+          </button>
+        </section>
+
+        <!-- kanban board -->
+        <section class="board" id="board-view" aria-label="kanban board">
+          <div class="column">
+            <div class="column-header">
+              <h2 class="column-title"><span class="column-dot dot-todo"></span>To do</h2>
+              <span class="column-count" id="column-count-todo">0</span>
+            </div>
+            <div class="task-list" id="list-todo" data-status="todo"></div>
+          </div>
+
+          <div class="column">
+            <div class="column-header">
+              <h2 class="column-title"><span class="column-dot dot-inprogress"></span>In progress</h2>
+              <span class="column-count" id="column-count-inprogress">0</span>
+            </div>
+            <div class="task-list" id="list-inprogress" data-status="inprogress"></div>
+          </div>
+
+          <div class="column">
+            <div class="column-header">
+              <h2 class="column-title"><span class="column-dot dot-completed"></span>Completed</h2>
+              <span class="column-count" id="column-count-completed">0</span>
+            </div>
+            <div class="task-list" id="list-completed" data-status="completed"></div>
+          </div>
+        </section>
+
+        <!-- list view for today, upcoming and completed -->
+        <section id="task-list-view" aria-label="task list" hidden>
+          <div class="task-grid" id="task-grid"></div>
+        </section>
+
+        <!-- empty state -->
+        <div class="empty-state" id="empty-state" hidden>
+          <i class="fa-regular fa-clipboard" aria-hidden="true"></i>
+          <p id="empty-text">No tasks yet. Create your first task.</p>
+          <button type="button" class="btn btn-primary" id="empty-add-btn">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>Add task</span>
+          </button>
+        </div>
+
+        <!-- settings -->
+        <section class="settings" id="settings-view" aria-label="settings" hidden>
+          <article class="settings-card">
+            <h2 class="card-title">Appearance</h2>
+            <div class="setting-row">
+              <div>
+                <p class="setting-title">Dark mode</p>
+                <p class="setting-desc">Switch between light and dark theme.</p>
+              </div>
+              <button type="button" class="switch" id="theme-switch" role="switch" aria-checked="false" aria-label="toggle dark mode">
+                <span class="switch-knob"></span>
+              </button>
+            </div>
+          </article>
+
+          <article class="settings-card">
+            <h2 class="card-title">Data</h2>
+            <div class="setting-row">
+              <div>
+                <p class="setting-title">Load sample tasks</p>
+                <p class="setting-desc">Replace your tasks with the sample tasks.</p>
+              </div>
+              <button type="button" class="btn btn-ghost" id="reset-samples-btn">Load samples</button>
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-title">Delete all tasks</p>
+                <p class="setting-desc">Remove every task from this browser.</p>
+              </div>
+              <button type="button" class="btn btn-danger" id="delete-all-btn">Delete all</button>
+            </div>
+          </article>
+        </section>
+
+      </main>
+
+      <!-- footer -->
+      <footer class="footer">
+        <p><strong>HazFocus</strong> &middot; built with html, css &amp; javascript</p>
+        <p>
+          Developed by HAZIM AQIL &middot;
+          <a href="https://github.com/hazell-lab/" target="_blank" rel="noopener">GitHub</a> &middot;
+          <a href="https://hazimaqil-portfolio.netlify.app" target="_blank" rel="noopener">Portfolio</a>
+        </p>
+      </footer>
+    </div>
+  </div>
+
+  <!-- add and edit task modal -->
+  <dialog class="modal" id="task-modal" aria-labelledby="task-modal-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="task-modal-title">Add new task</h2>
+        <button type="button" class="icon-btn" id="close-modal-btn" aria-label="close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <form id="task-form" novalidate>
+        <div class="form-group">
+          <label for="task-title">Task title <span class="required">*</span></label>
+          <input type="text" id="task-title" maxlength="80" placeholder="e.g. finish javascript project" aria-describedby="title-error" autocomplete="off">
+          <p class="error-message" id="title-error"></p>
+        </div>
+
+        <div class="form-group">
+          <label for="task-description">Description</label>
+          <textarea id="task-description" maxlength="200" placeholder="Optional details about the task"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="task-category">Category</label>
+            <select id="task-category">
+              <option value="personal" selected>Personal</option>
+              <option value="study">Study</option>
+              <option value="work">Work</option>
+              <option value="coding">Coding</option>
+              <option value="fitness">Fitness</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="task-priority">Priority</label>
+            <select id="task-priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="task-due">Due date</label>
+            <input type="date" id="task-due" aria-describedby="due-error">
+            <p class="error-message" id="due-error"></p>
+          </div>
+          <div class="form-group">
+            <label for="task-status">Status</label>
+            <select id="task-status">
+              <option value="todo" selected>To do</option>
+              <option value="inprogress">In progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="cancel-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submit-btn">Add task</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- confirm modal -->
+  <dialog class="modal modal-small" id="confirm-modal" aria-labelledby="confirm-title">
+    <div class="modal-box">
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p class="confirm-message" id="confirm-message"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="confirm-cancel-btn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok-btn">Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- toast messages -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
