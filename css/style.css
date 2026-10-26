@@ -5,7 +5,7 @@
   --surface-soft: #f7f8fc;
   --border: #e4e7ee;
   --text: #1f2430;
-  --text-muted: #6b7280;
+  --text-muted: #5f6673;
 
   --primary: #4f6df5;
   --primary-dark: #3f57d6;
@@ -13,6 +13,13 @@
   --green: #22a06b;
   --red: #e5484d;
   --orange: #f08a24;
+
+  /* text versions of the accent colours, dark enough for small text (4.5:1) */
+  --primary-text: #3550d6;
+  --purple-text: #5b3fd0;
+  --green-text: #13754c;
+  --red-text: #c42b30;
+  --orange-text: #a3530a;
 
   --shadow-sm: 0 1px 3px rgba(20, 25, 45, 0.06);
   --shadow-md: 0 8px 22px rgba(20, 25, 45, 0.1);
@@ -27,6 +34,13 @@
   --border: #2c3140;
   --text: #eceef4;
   --text-muted: #9aa1b2;
+
+  /* lighter text accents so small text stays readable on dark surfaces */
+  --primary-text: #8fa3ff;
+  --purple-text: #b09cff;
+  --green-text: #4fd197;
+  --red-text: #ff8589;
+  --orange-text: #ffad5c;
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.45);
@@ -73,7 +87,7 @@ button {
 }
 
 a {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 :focus-visible {
@@ -482,7 +496,7 @@ a {
 
 .productivity-message {
   margin-top: 6px;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -691,9 +705,9 @@ a {
   background: currentColor;
 }
 
-.priority-high { background: rgba(229, 72, 77, 0.12); color: var(--red); }
-.priority-medium { background: rgba(240, 138, 36, 0.14); color: var(--orange); }
-.priority-low { background: rgba(34, 160, 107, 0.14); color: var(--green); }
+.priority-high { background: rgba(229, 72, 77, 0.12); color: var(--red-text); }
+.priority-medium { background: rgba(240, 138, 36, 0.14); color: var(--orange-text); }
+.priority-low { background: rgba(34, 160, 107, 0.14); color: var(--green-text); }
 
 .category-tag {
   padding: 3px 9px;
@@ -741,8 +755,8 @@ a {
   font-size: 0.8rem;
 }
 
-.due-overdue { color: var(--red); font-weight: 600; }
-.due-today { color: var(--primary); font-weight: 600; }
+.due-overdue { color: var(--red-text); font-weight: 600; }
+.due-today { color: var(--primary-text); font-weight: 600; }
 .due-upcoming { color: var(--text); }
 
 .badge {
@@ -754,8 +768,8 @@ a {
   letter-spacing: 0.03em;
 }
 
-.badge-overdue { background: rgba(229, 72, 77, 0.14); color: var(--red); }
-.badge-today { background: rgba(79, 109, 245, 0.14); color: var(--primary); }
+.badge-overdue { background: rgba(229, 72, 77, 0.14); color: var(--red-text); }
+.badge-today { background: rgba(79, 109, 245, 0.14); color: var(--primary-text); }
 
 .status-badge {
   padding: 2px 8px;
@@ -765,8 +779,8 @@ a {
 }
 
 .status-todo { background: var(--surface-soft); color: var(--text-muted); border: 1px solid var(--border); }
-.status-inprogress { background: rgba(124, 92, 240, 0.14); color: var(--purple); }
-.status-completed { background: rgba(34, 160, 107, 0.14); color: var(--green); }
+.status-inprogress { background: rgba(124, 92, 240, 0.14); color: var(--purple-text); }
+.status-completed { background: rgba(34, 160, 107, 0.14); color: var(--green-text); }
 
 .card-footer {
   display: flex;
