@@ -28,9 +28,10 @@ This project was built to practice core frontend skills without any framework or
 - **Search** by title, description or category
 - **Statistics** (total, completed, pending, overdue) and a progress bar
 - **Needs attention** list on the dashboard with overdue and due-today tasks
-- **Keyboard shortcuts**: `N` new task, `/` search, `1`–`5` switch views, `Esc` close or clear
+- **Focus timer** (Pomodoro): 25 minute focus sessions, short breaks and a long break after every fourth session, with adjustable lengths, a soft chime, a "working on" task, today's focus time and a distraction-free mode
+- **Keyboard shortcuts**: `N` new task, `/` search, `1`–`6` switch views, `Space` start or pause the timer, `R` reset it, `F` hide distractions, `Esc` close or clear
 - **Views** for Dashboard, All tasks, Today, Upcoming and Completed
-- **localStorage** for tasks, filters and theme
+- **localStorage** for tasks, filters, theme, name and the focus timer (a running timer survives a page reload)
 - Paper (light) and night (dark) themes, toast notifications, empty states
 - Responsive design with a bottom tab bar, swipeable board lanes and bottom-sheet dialogs on phones
 - Respects reduced-motion preferences
@@ -99,7 +100,6 @@ You can also open `index.html` directly in a browser. An internet connection is 
 - Recurring tasks
 - Reminders and notifications
 - Calendar view
-- Pomodoro timer
 - Subtasks
 - Team collaboration
 - A React version of the project

@@ -53,6 +53,11 @@
     <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6.5h16M7 12h10M10 17.5h4"/></symbol>
     <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3.5H8"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v4.8M12 16h.01"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.2 1.6M9.8 2.8h4.4M12 2.8V6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.8v12.4a.6.6 0 0 0 .9.5l9.6-6.2a.6.6 0 0 0 0-1L8.9 5.3a.6.6 0 0 0-.9.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.8" y="5.5" width="3.6" height="13" rx="1" fill="currentColor"/><rect x="13.6" y="5.5" width="3.6" height="13" rx="1" fill="currentColor"/></symbol>
+    <symbol id="i-skip" viewBox="0 0 24 24"><path d="M6 6.5l8.5 5.5L6 17.5z"/><path d="M18 6v12"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4.5 9V4.5H9M19.5 9V4.5H15M4.5 15v4.5H9M19.5 15v4.5H15"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
   </svg>
 
@@ -95,6 +100,11 @@
           <svg class="icon" aria-hidden="true"><use href="#i-done"/></svg>
           <span class="nav-label">Completed</span>
           <span class="nav-count" id="nav-count-completed">0</span>
+        </button>
+        <button type="button" class="nav-item" data-view="focus">
+          <svg class="icon" aria-hidden="true"><use href="#i-focus"/></svg>
+          <span class="nav-label">Focus</span>
+          <span class="nav-timer" id="nav-timer" hidden></span>
         </button>
       </nav>
 
@@ -341,6 +351,59 @@
           </button>
         </div>
 
+        <!-- focus timer -->
+        <section class="focus-view" id="focus-view" aria-label="focus timer" hidden>
+          <div class="mode-switch" role="radiogroup" aria-label="timer mode">
+            <button type="button" class="mode-btn" role="radio" data-mode="focus" aria-checked="true">Focus</button>
+            <button type="button" class="mode-btn" role="radio" data-mode="short" aria-checked="false">Short break</button>
+            <button type="button" class="mode-btn" role="radio" data-mode="long" aria-checked="false">Long break</button>
+          </div>
+
+          <div class="timer">
+            <svg class="timer-ring" viewBox="0 0 240 240" aria-hidden="true">
+              <circle class="ring-track" cx="120" cy="120" r="112"/>
+              <circle class="ring-progress" id="ring-progress" cx="120" cy="120" r="112"/>
+            </svg>
+            <div class="timer-center">
+              <p class="timer-time" id="timer-time" role="timer" aria-label="time left">25:00</p>
+              <p class="timer-label" id="timer-label">Focus</p>
+              <ol class="cycle-dots" id="cycle-dots" aria-label="focus sessions in this cycle"></ol>
+            </div>
+          </div>
+
+          <div class="timer-controls">
+            <button type="button" class="icon-btn icon-btn-round" id="timer-reset" aria-label="reset timer" title="Reset (R)">
+              <svg class="icon" aria-hidden="true"><use href="#i-reset"/></svg>
+            </button>
+            <button type="button" class="timer-toggle" id="timer-toggle" aria-keyshortcuts="Space">
+              <svg class="icon" aria-hidden="true"><use id="timer-toggle-icon" href="#i-play"/></svg>
+              <span id="timer-toggle-text">Start</span>
+            </button>
+            <button type="button" class="icon-btn icon-btn-round" id="timer-skip" aria-label="skip to next session" title="Skip">
+              <svg class="icon" aria-hidden="true"><use href="#i-skip"/></svg>
+            </button>
+          </div>
+
+          <div class="focus-task">
+            <label for="focus-task-select">Working on</label>
+            <div class="focus-task-row">
+              <select id="focus-task-select"></select>
+              <button type="button" class="chip-btn" id="focus-task-done" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+                <span>Mark done</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="focus-foot">
+            <p class="focus-today" id="focus-today"></p>
+            <button type="button" class="chip-btn" id="immersive-btn" aria-pressed="false" title="Hide everything else (F)">
+              <svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg>
+              <span id="immersive-text">Hide distractions</span>
+            </button>
+          </div>
+        </section>
+
         <!-- settings -->
         <section class="settings" id="settings-view" aria-label="settings" hidden>
           <div class="settings-group">
@@ -371,6 +434,30 @@
           </div>
 
           <div class="settings-group">
+            <h2 class="settings-heading">Focus timer</h2>
+            <div class="setting-row">
+              <div>
+                <p class="setting-title">Session lengths</p>
+                <p class="setting-desc">Minutes for focus, short breaks and long breaks. A long break comes after every fourth focus session.</p>
+              </div>
+              <div class="duration-fields">
+                <label class="duration"><span>Focus</span><input type="number" id="focus-minutes" min="1" max="120" inputmode="numeric"></label>
+                <label class="duration"><span>Short</span><input type="number" id="short-minutes" min="1" max="60" inputmode="numeric"></label>
+                <label class="duration"><span>Long</span><input type="number" id="long-minutes" min="1" max="60" inputmode="numeric"></label>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-title">Sound</p>
+                <p class="setting-desc">Play a soft chime when a session ends.</p>
+              </div>
+              <button type="button" class="switch on" id="sound-switch" role="switch" aria-checked="true" aria-label="chime when a session ends">
+                <span class="switch-knob"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-group">
             <h2 class="settings-heading">Data</h2>
             <div class="setting-row">
               <div>
@@ -393,8 +480,10 @@
             <dl class="shortcuts">
               <div><dt><kbd>N</kbd></dt><dd>New task</dd></div>
               <div><dt><kbd>/</kbd></dt><dd>Search tasks</dd></div>
-              <div><dt><kbd>1</kbd> – <kbd>5</kbd></dt><dd>Dashboard, All tasks, Today, Upcoming, Completed</dd></div>
-              <div><dt><kbd>Esc</kbd></dt><dd>Close menu, dialog or clear search</dd></div>
+              <div><dt><kbd>1</kbd> – <kbd>6</kbd></dt><dd>Dashboard, All tasks, Today, Upcoming, Completed, Focus</dd></div>
+              <div><dt><kbd>Space</kbd></dt><dd>Start or pause the focus timer</dd></div>
+              <div><dt><kbd>R</kbd> <kbd>F</kbd></dt><dd>Reset the timer, hide distractions</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Close menu or dialog, clear search, leave distraction-free mode</dd></div>
             </dl>
           </div>
         </section>
@@ -426,9 +515,9 @@
     <button type="button" class="tab-add" id="mobile-add-btn" aria-label="add task">
       <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
     </button>
-    <button type="button" class="nav-item tab" data-view="upcoming">
-      <svg class="icon" aria-hidden="true"><use href="#i-upcoming"/></svg>
-      <span class="nav-label">Upcoming</span>
+    <button type="button" class="nav-item tab" data-view="focus">
+      <svg class="icon" aria-hidden="true"><use href="#i-focus"/></svg>
+      <span class="nav-label">Focus</span>
     </button>
     <button type="button" class="nav-item tab" data-view="all">
       <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>

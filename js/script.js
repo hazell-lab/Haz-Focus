@@ -3,6 +3,9 @@ const TASKS_KEY = "HazFocus-tasks";
 const FILTERS_KEY = "HazFocus-filters";
 const THEME_KEY = "HazFocus-theme";
 const NAME_KEY = "HazFocus-name";
+const FOCUS_KEY = "HazFocus-focus";
+const FOCUS_SETTINGS_KEY = "HazFocus-focus-settings";
+const FOCUS_LOG_KEY = "HazFocus-focus-log";
 const DEFAULT_NAME = "Hazim Aqil";
 
 // labels and settings
@@ -25,6 +28,7 @@ const pageTitles = {
   today: "Today",
   upcoming: "Upcoming",
   completed: "Completed",
+  focus: "Focus",
   settings: "Settings"
 };
 
@@ -797,8 +801,8 @@ function getEmptyMessage() {
 
 // show tasks
 function renderTasks() {
-  // settings page has no tasks
-  if (currentView === "settings") {
+  // settings and focus pages have no task list
+  if (currentView === "settings" || currentView === "focus") {
     boardView.hidden = true;
     taskListView.hidden = true;
     emptyState.hidden = true;
@@ -835,7 +839,13 @@ function renderTasks() {
 function updateViewLayout() {
   dashboardSection.hidden = currentView !== "dashboard";
   settingsView.hidden = currentView !== "settings";
-  toolbar.hidden = currentView === "settings";
+  focusView.hidden = currentView !== "focus";
+  toolbar.hidden = currentView === "settings" || currentView === "focus";
+
+  // distraction-free mode only makes sense on the focus page
+  if (currentView !== "focus") {
+    setImmersive(false);
+  }
 }
 
 // highlight the active menu item
@@ -866,7 +876,7 @@ function updatePageTitle() {
   }
 
   pageTitle.textContent = title;
-  document.title = title + " | HazFocus";
+  document.title = getTimerTitlePrefix() + title + " | HazFocus";
 }
 
 // update sidebar counts
@@ -989,6 +999,9 @@ function renderApp() {
   updateFilterState();
   if (currentView === "dashboard") {
     renderFocus();
+  }
+  if (currentView === "focus") {
+    renderFocusTasks();
   }
   renderTasks();
 }
@@ -1584,8 +1597,8 @@ function handleMoveChange(event) {
 function handleSearch() {
   filters.search = searchInput.value;
 
-  // leave settings so results are visible
-  if (currentView === "settings") {
+  // leave settings and focus so results are visible
+  if (currentView === "settings" || currentView === "focus") {
     currentView = "all";
   }
 
@@ -1822,12 +1835,502 @@ function setupEventListeners() {
   document.addEventListener("keydown", handleShortcuts);
 }
 
+// focus timer
+// a pomodoro style timer: focus sessions with short breaks,
+// and a long break after every fourth focus session
+
+const focusView = document.getElementById("focus-view");
+const modeButtons = document.querySelectorAll(".mode-btn");
+const ringProgress = document.getElementById("ring-progress");
+const timerTime = document.getElementById("timer-time");
+const timerLabel = document.getElementById("timer-label");
+const cycleDots = document.getElementById("cycle-dots");
+const timerToggle = document.getElementById("timer-toggle");
+const timerToggleIcon = document.getElementById("timer-toggle-icon");
+const timerToggleText = document.getElementById("timer-toggle-text");
+const timerReset = document.getElementById("timer-reset");
+const timerSkip = document.getElementById("timer-skip");
+const focusTaskSelect = document.getElementById("focus-task-select");
+const focusTaskDone = document.getElementById("focus-task-done");
+const focusToday = document.getElementById("focus-today");
+const immersiveBtn = document.getElementById("immersive-btn");
+const immersiveText = document.getElementById("immersive-text");
+const navTimer = document.getElementById("nav-timer");
+const focusMinutesInput = document.getElementById("focus-minutes");
+const shortMinutesInput = document.getElementById("short-minutes");
+const longMinutesInput = document.getElementById("long-minutes");
+const soundSwitch = document.getElementById("sound-switch");
+
+const SESSIONS_PER_CYCLE = 4;
+const RING_LENGTH = 2 * Math.PI * 112;
+const modeLabels = { focus: "Focus", short: "Short break", long: "Long break" };
+
+let focusSettings = { focus: 25, short: 5, long: 15, sound: true };
+let focusState = {
+  mode: "focus",
+  status: "idle", // idle, running or paused
+  endsAt: 0,
+  remaining: 0,
+  done: 0, // focus sessions finished in this cycle
+  taskId: null
+};
+let focusLog = { date: "", sessions: 0, minutes: 0 };
+let timerInterval = null;
+let audioContext = null;
+
+// length of a mode in milliseconds
+function getModeLength(mode) {
+  return focusSettings[mode] * 60000;
+}
+
+// time left in milliseconds
+function getRemaining() {
+  if (focusState.status === "running") {
+    return Math.max(0, focusState.endsAt - Date.now());
+  }
+  return focusState.remaining;
+}
+
+// turn milliseconds into mm:ss
+function formatClock(ms) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+}
+
+// keep a whole number inside a range
+function clampMinutes(value, max, fallback) {
+  const number = Math.round(Number(value));
+  if (!Number.isFinite(number) || number < 1) {
+    return fallback;
+  }
+  return Math.min(number, max);
+}
+
+// save and load timer data
+function saveFocus() {
+  writeStorage(FOCUS_KEY, JSON.stringify(focusState));
+}
+
+function saveFocusSettings() {
+  writeStorage(FOCUS_SETTINGS_KEY, JSON.stringify(focusSettings));
+}
+
+function saveFocusLog() {
+  writeStorage(FOCUS_LOG_KEY, JSON.stringify(focusLog));
+}
+
+function readJson(key) {
+  try {
+    return JSON.parse(readStorage(key));
+  } catch (error) {
+    return null;
+  }
+}
+
+function loadFocus() {
+  const settings = readJson(FOCUS_SETTINGS_KEY);
+  if (settings && typeof settings === "object") {
+    focusSettings = {
+      focus: clampMinutes(settings.focus, 120, 25),
+      short: clampMinutes(settings.short, 60, 5),
+      long: clampMinutes(settings.long, 60, 15),
+      sound: settings.sound !== false
+    };
+  }
+
+  const log = readJson(FOCUS_LOG_KEY);
+  if (log && log.date === getTodayString()) {
+    focusLog = {
+      date: log.date,
+      sessions: Number(log.sessions) || 0,
+      minutes: Number(log.minutes) || 0
+    };
+  } else {
+    focusLog = { date: getTodayString(), sessions: 0, minutes: 0 };
+  }
+
+  const state = readJson(FOCUS_KEY);
+  if (state && modeLabels[state.mode] && ["idle", "running", "paused"].includes(state.status)) {
+    focusState = {
+      mode: state.mode,
+      status: state.status,
+      endsAt: Number(state.endsAt) || 0,
+      remaining: Number(state.remaining) || 0,
+      done: Math.min(Math.max(Number(state.done) || 0, 0), SESSIONS_PER_CYCLE),
+      taskId: state.taskId || null
+    };
+  }
+
+  if (focusState.status === "idle") {
+    focusState.remaining = getModeLength(focusState.mode);
+  }
+
+  syncFocusSettingControls();
+
+  // a session that ended while the page was closed
+  if (focusState.status === "running") {
+    if (getRemaining() === 0) {
+      finishSession(false);
+    } else {
+      startTicking();
+    }
+  }
+  updateTimerDisplay();
+}
+
+// show the saved lengths in settings
+function syncFocusSettingControls() {
+  focusMinutesInput.value = focusSettings.focus;
+  shortMinutesInput.value = focusSettings.short;
+  longMinutesInput.value = focusSettings.long;
+  soundSwitch.classList.toggle("on", focusSettings.sound);
+  soundSwitch.setAttribute("aria-checked", String(focusSettings.sound));
+}
+
+// read new lengths from settings
+function handleDurationChange() {
+  focusSettings.focus = clampMinutes(focusMinutesInput.value, 120, focusSettings.focus);
+  focusSettings.short = clampMinutes(shortMinutesInput.value, 60, focusSettings.short);
+  focusSettings.long = clampMinutes(longMinutesInput.value, 60, focusSettings.long);
+  syncFocusSettingControls();
+  saveFocusSettings();
+
+  // an idle timer picks up the new length straight away
+  if (focusState.status === "idle") {
+    focusState.remaining = getModeLength(focusState.mode);
+    saveFocus();
+    updateTimerDisplay();
+  }
+}
+
+// start, pause or resume
+function toggleTimer() {
+  if (focusState.status === "running") {
+    focusState.remaining = getRemaining();
+    focusState.status = "paused";
+    stopTicking();
+  } else {
+    if (focusState.remaining <= 0) {
+      focusState.remaining = getModeLength(focusState.mode);
+    }
+    focusState.endsAt = Date.now() + focusState.remaining;
+    focusState.status = "running";
+    unlockAudio();
+    startTicking();
+  }
+  saveFocus();
+  updateTimerDisplay();
+}
+
+// go back to the start of the current session
+function resetTimer() {
+  stopTicking();
+  focusState.status = "idle";
+  focusState.remaining = getModeLength(focusState.mode);
+  saveFocus();
+  updateTimerDisplay();
+}
+
+// switch to another mode
+function setTimerMode(mode) {
+  stopTicking();
+  // a full cycle starts again with the next focus session
+  if (mode === "focus" && focusState.done >= SESSIONS_PER_CYCLE) {
+    focusState.done = 0;
+  }
+  focusState.mode = mode;
+  focusState.status = "idle";
+  focusState.remaining = getModeLength(mode);
+  saveFocus();
+  updateTimerDisplay();
+}
+
+// pick the mode that follows the current one
+function getNextMode() {
+  if (focusState.mode !== "focus") {
+    return "focus";
+  }
+  return focusState.done + 1 >= SESSIONS_PER_CYCLE ? "long" : "short";
+}
+
+// end the current session, completed is false when it is skipped
+function finishSession(completed) {
+  const finishedMode = focusState.mode;
+  const nextMode = getNextMode();
+
+  if (finishedMode === "focus") {
+    if (completed !== false || getRemaining() === 0) {
+      // only count focus time that really happened
+      if (focusLog.date !== getTodayString()) {
+        focusLog = { date: getTodayString(), sessions: 0, minutes: 0 };
+      }
+      focusLog.sessions += 1;
+      focusLog.minutes += focusSettings.focus;
+      saveFocusLog();
+    }
+    focusState.done = Math.min(focusState.done + 1, SESSIONS_PER_CYCLE);
+  } else if (finishedMode === "long") {
+    focusState.done = 0;
+  }
+
+  setTimerMode(nextMode);
+  return finishedMode;
+}
+
+// skip to the next session without counting it
+function skipSession() {
+  finishSession(false);
+}
+
+// the clock reached zero
+function completeSession() {
+  const finished = finishSession(true);
+  playChime();
+  const message = finished === "focus"
+    ? "Focus session done. Time for a break."
+    : "Break over. Ready to focus?";
+  showToast(message);
+}
+
+// update the clock four times a second
+function startTicking() {
+  stopTicking();
+  timerInterval = setInterval(function () {
+    if (getRemaining() === 0) {
+      completeSession();
+      return;
+    }
+    updateTimerDisplay();
+  }, 250);
+}
+
+function stopTicking() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+// text for the browser tab while the timer runs
+function getTimerTitlePrefix() {
+  if (focusState.status !== "running") {
+    return "";
+  }
+  return formatClock(getRemaining()) + " · ";
+}
+
+// draw the clock, ring, buttons and labels
+function updateTimerDisplay() {
+  const remaining = getRemaining();
+  const total = getModeLength(focusState.mode);
+  const progress = total === 0 ? 0 : 1 - remaining / total;
+  const clock = formatClock(remaining);
+  const running = focusState.status === "running";
+
+  timerTime.textContent = clock;
+  ringProgress.style.strokeDashoffset = String(RING_LENGTH * (1 - progress));
+  focusView.dataset.mode = focusState.mode;
+  focusView.dataset.status = focusState.status;
+
+  // label like focus 2 of 4
+  if (focusState.mode === "focus") {
+    timerLabel.textContent = `Focus ${focusState.done + 1} of ${SESSIONS_PER_CYCLE}`;
+  } else {
+    timerLabel.textContent = modeLabels[focusState.mode];
+  }
+
+  // one dot per focus session in the cycle
+  let dots = "";
+  for (let i = 0; i < SESSIONS_PER_CYCLE; i++) {
+    let state = "";
+    if (i < focusState.done) {
+      state = "is-done";
+    } else if (i === focusState.done && focusState.mode === "focus") {
+      state = "is-current";
+    }
+    dots += `<li class="${state}"></li>`;
+  }
+  cycleDots.innerHTML = dots;
+  cycleDots.setAttribute("aria-label", `${focusState.done} of ${SESSIONS_PER_CYCLE} focus sessions done in this cycle`);
+
+  modeButtons.forEach(function (button) {
+    button.setAttribute("aria-checked", String(button.dataset.mode === focusState.mode));
+  });
+
+  timerToggleIcon.setAttribute("href", running ? "#i-pause" : "#i-play");
+  if (running) {
+    timerToggleText.textContent = "Pause";
+  } else if (focusState.status === "paused") {
+    timerToggleText.textContent = "Resume";
+  } else {
+    timerToggleText.textContent = "Start";
+  }
+
+  // small clock next to focus in the sidebar
+  navTimer.hidden = focusState.status === "idle";
+  navTimer.textContent = clock;
+
+  // today's real focus time
+  if (focusLog.date !== getTodayString() || focusLog.sessions === 0) {
+    focusToday.textContent = "No focus sessions finished today yet.";
+  } else {
+    focusToday.textContent = `Today: ${plural(focusLog.sessions, "session")} · ${focusLog.minutes} min focused`;
+  }
+
+  document.title = getTimerTitlePrefix() + pageTitle.textContent + " | HazFocus";
+}
+
+// fill the working on list with unfinished tasks
+function renderFocusTasks() {
+  const open = tasks
+    .filter(function (task) {
+      return task.status !== "completed";
+    })
+    .sort(function (a, b) {
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+
+  // forget a task that was finished or deleted
+  if (focusState.taskId && !open.some(function (task) { return task.id === focusState.taskId; })) {
+    focusState.taskId = null;
+    saveFocus();
+  }
+
+  const options = open
+    .map(function (task) {
+      const selected = task.id === focusState.taskId ? "selected" : "";
+      return `<option value="${task.id}" ${selected}>${escapeHtml(task.title)}</option>`;
+    })
+    .join("");
+
+  focusTaskSelect.innerHTML = `<option value="">Nothing in particular</option>${options}`;
+  focusTaskDone.hidden = !focusState.taskId;
+}
+
+// remember the chosen task
+function handleFocusTaskChange() {
+  focusState.taskId = focusTaskSelect.value ? Number(focusTaskSelect.value) : null;
+  focusTaskDone.hidden = !focusState.taskId;
+  saveFocus();
+}
+
+// complete the task being worked on
+function completeFocusTask() {
+  if (focusState.taskId) {
+    completeTask(focusState.taskId);
+  }
+}
+
+// hide the sidebar, header and footer around the timer
+function setImmersive(on) {
+  document.body.classList.toggle("immersive", on);
+  immersiveBtn.setAttribute("aria-pressed", String(on));
+  immersiveText.textContent = on ? "Show everything (Esc)" : "Hide distractions";
+}
+
+// browsers only allow sound after a click, so the audio starts on the first start
+function unlockAudio() {
+  // only create the audio inside a real click or key press
+  const userActive = !navigator.userActivation || navigator.userActivation.isActive;
+  if (!focusSettings.sound || !userActive) {
+    return;
+  }
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // nothing left to unlock once the audio is running
+      document.removeEventListener("pointerdown", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
+    }
+    if (audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+  } catch (error) {
+    audioContext = null;
+  }
+}
+
+// two soft notes made in the browser, no sound file needed
+function playChime() {
+  if (!focusSettings.sound || !audioContext) {
+    return;
+  }
+  try {
+    const now = audioContext.currentTime;
+    [659.25, 880].forEach(function (frequency, index) {
+      const start = now + index * 0.18;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.2);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 1.25);
+    });
+  } catch (error) {
+    // sound is optional
+  }
+}
+
+// timer listeners
+function setupFocusListeners() {
+  timerToggle.addEventListener("click", toggleTimer);
+  timerReset.addEventListener("click", resetTimer);
+  timerSkip.addEventListener("click", skipSession);
+
+  modeButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      setTimerMode(button.dataset.mode);
+    });
+  });
+
+  focusTaskSelect.addEventListener("change", handleFocusTaskChange);
+  focusTaskDone.addEventListener("click", completeFocusTask);
+
+  immersiveBtn.addEventListener("click", function () {
+    setImmersive(!document.body.classList.contains("immersive"));
+  });
+
+  [focusMinutesInput, shortMinutesInput, longMinutesInput].forEach(function (input) {
+    input.addEventListener("change", handleDurationChange);
+  });
+
+  soundSwitch.addEventListener("click", function () {
+    focusSettings.sound = !focusSettings.sound;
+    syncFocusSettingControls();
+    saveFocusSettings();
+  });
+
+  // get sound ready on the first click or key press, also after a reload
+  document.addEventListener("pointerdown", unlockAudio);
+  document.addEventListener("keydown", unlockAudio);
+
+  // the timer keeps time even in a background tab, this catches up the display
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && focusState.status === "running") {
+      if (getRemaining() === 0) {
+        completeSession();
+      } else {
+        updateTimerDisplay();
+      }
+    }
+  });
+}
+
 // views for the number keys
-const shortcutViews = ["dashboard", "all", "today", "upcoming", "completed"];
+const shortcutViews = ["dashboard", "all", "today", "upcoming", "completed", "focus"];
 
 // handle keyboard shortcuts
 function handleShortcuts(event) {
   if (event.key === "Escape") {
+    // leave distraction-free mode first
+    if (document.body.classList.contains("immersive") && !taskModal.open && !confirmModal.open) {
+      setImmersive(false);
+      return;
+    }
     // clear the search box first, then close the menu
     if (document.activeElement === searchInput && searchInput.value !== "") {
       searchInput.value = "";
@@ -1851,8 +2354,18 @@ function handleShortcuts(event) {
   } else if (event.key === "/") {
     event.preventDefault();
     searchInput.focus();
-  } else if (/^[1-5]$/.test(event.key)) {
+  } else if (/^[1-6]$/.test(event.key)) {
     setView(shortcutViews[Number(event.key) - 1]);
+  } else if (currentView === "focus") {
+    // timer keys, buttons keep their own space and enter behaviour
+    if (event.key === " " && !target.closest("button")) {
+      event.preventDefault();
+      toggleTimer();
+    } else if (event.key === "r" || event.key === "R") {
+      resetTimer();
+    } else if (event.key === "f" || event.key === "F") {
+      setImmersive(!document.body.classList.contains("immersive"));
+    }
   }
 }
 
@@ -1865,6 +2378,8 @@ function init() {
   showGreeting();
   showUserName();
   setupEventListeners();
+  setupFocusListeners();
+  loadFocus();
   renderApp();
 
   // refresh dates when the user comes back to the tab,
