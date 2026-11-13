@@ -2,6 +2,8 @@
 const TASKS_KEY = "HazFocus-tasks";
 const FILTERS_KEY = "HazFocus-filters";
 const THEME_KEY = "HazFocus-theme";
+const NAME_KEY = "HazFocus-name";
+const DEFAULT_NAME = "Hazim Aqil";
 
 // labels and settings
 const statuses = ["todo", "inprogress", "completed"];
@@ -106,6 +108,11 @@ const settingsView = document.getElementById("settings-view");
 const themeSwitch = document.getElementById("theme-switch");
 const resetSamplesBtn = document.getElementById("reset-samples-btn");
 const deleteAllBtn = document.getElementById("delete-all-btn");
+const nameForm = document.getElementById("name-form");
+const nameInput = document.getElementById("name-input");
+const heroName = document.getElementById("hero-name");
+const profileName = document.getElementById("profile-name");
+const profileAvatar = document.getElementById("profile-avatar");
 
 // task modal elements
 const taskModal = document.getElementById("task-modal");
@@ -195,6 +202,45 @@ function getGreeting() {
     return "Good afternoon";
   }
   return "Good evening";
+}
+
+// get the saved name, the default name is used until the user changes it
+function getUserName() {
+  const saved = readStorage(NAME_KEY);
+  return saved === null ? DEFAULT_NAME : saved;
+}
+
+// get initials like ha from hazim aqil
+function getInitials(name) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(function (part) {
+      return part.charAt(0).toUpperCase();
+    })
+    .join("");
+}
+
+// show the name in the greeting and the sidebar
+function showUserName() {
+  const name = getUserName().trim();
+  const firstName = name.split(/\s+/)[0];
+
+  heroName.textContent = firstName ? ", " + firstName + "." : ".";
+  profileName.textContent = name;
+  profileAvatar.textContent = getInitials(name);
+  profileAvatar.parentElement.hidden = name === "";
+  nameInput.value = name;
+}
+
+// save the name from settings
+function handleNameSubmit(event) {
+  event.preventDefault();
+  const name = nameInput.value.trim().replace(/\s+/g, " ");
+  writeStorage(NAME_KEY, name);
+  showUserName();
+  showToast(name ? "Name saved" : "Name hidden");
 }
 
 // show greeting and date in the header
@@ -1290,6 +1336,209 @@ function handleDrop(event) {
 }
 
 
+// touch drag and drop
+// a long press picks up a card, moving the finger drags it, lifting drops it
+
+const touchDrag = {
+  timer: null,
+  card: null,
+  ghost: null,
+  startX: 0,
+  startY: 0,
+  offsetX: 0,
+  offsetY: 0,
+  lastX: 0,
+  lastY: 0,
+  overList: null,
+  scrollFrame: null,
+  active: false
+};
+
+const LONG_PRESS_MS = 350;
+const MOVE_TOLERANCE = 8;
+const EDGE_SIZE = 48;
+
+// wait for a long press on a card
+function handleTouchStart(event) {
+  if (event.touches.length !== 1) {
+    cancelTouchDrag();
+    return;
+  }
+
+  const card = event.target.closest(".task-card[draggable='true']");
+  // buttons and the status select keep their normal tap behaviour
+  if (!card || event.target.closest("button, select, label")) {
+    return;
+  }
+
+  const touch = event.touches[0];
+  touchDrag.card = card;
+  touchDrag.startX = touch.clientX;
+  touchDrag.startY = touch.clientY;
+  touchDrag.lastX = touch.clientX;
+  touchDrag.lastY = touch.clientY;
+  touchDrag.timer = setTimeout(startTouchDrag, LONG_PRESS_MS);
+}
+
+// pick up the card after the long press
+function startTouchDrag() {
+  const card = touchDrag.card;
+  if (!card) {
+    return;
+  }
+
+  const rect = card.getBoundingClientRect();
+  touchDrag.active = true;
+  touchDrag.offsetX = touchDrag.startX - rect.left;
+  touchDrag.offsetY = touchDrag.startY - rect.top;
+  draggedId = Number(card.dataset.id);
+
+  // a floating copy follows the finger
+  const ghost = card.cloneNode(true);
+  ghost.classList.add("drag-ghost");
+  ghost.removeAttribute("draggable");
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.querySelectorAll("[id]").forEach(function (element) {
+    element.removeAttribute("id");
+  });
+  ghost.style.width = rect.width + "px";
+  document.body.appendChild(ghost);
+  touchDrag.ghost = ghost;
+
+  card.classList.add("dragging");
+  boardView.classList.add("is-touch-dragging");
+  document.body.classList.add("touch-dragging");
+  moveGhost(touchDrag.lastX, touchDrag.lastY);
+
+  if (navigator.vibrate) {
+    navigator.vibrate(10);
+  }
+
+  autoScrollBoard();
+}
+
+// place the floating card under the finger
+function moveGhost(x, y) {
+  touchDrag.ghost.style.transform = `translate(${x - touchDrag.offsetX}px, ${y - touchDrag.offsetY}px) rotate(1.5deg)`;
+}
+
+// highlight the column under the finger
+function updateTouchTarget(x, y) {
+  const element = document.elementFromPoint(x, y);
+  const list = element ? element.closest(".task-list") : null;
+  const column = element ? element.closest(".column") : null;
+  const target = list || (column ? column.querySelector(".task-list") : null);
+
+  if (target === touchDrag.overList) {
+    return;
+  }
+  if (touchDrag.overList) {
+    touchDrag.overList.classList.remove("drag-over");
+  }
+  if (target) {
+    target.classList.add("drag-over");
+  }
+  touchDrag.overList = target;
+}
+
+// scroll the board sideways and the page up or down near the edges
+function autoScrollBoard() {
+  if (!touchDrag.active) {
+    return;
+  }
+
+  const x = touchDrag.lastX;
+  const y = touchDrag.lastY;
+  const boardRect = boardView.getBoundingClientRect();
+  let scrolled = false;
+
+  if (boardView.scrollWidth > boardView.clientWidth) {
+    if (x < boardRect.left + EDGE_SIZE) {
+      boardView.scrollLeft -= 6;
+      scrolled = true;
+    } else if (x > boardRect.right - EDGE_SIZE) {
+      boardView.scrollLeft += 6;
+      scrolled = true;
+    }
+  }
+
+  if (y < EDGE_SIZE + 60) {
+    window.scrollBy(0, -10);
+    scrolled = true;
+  } else if (y > window.innerHeight - EDGE_SIZE - 70) {
+    window.scrollBy(0, 10);
+    scrolled = true;
+  }
+
+  if (scrolled) {
+    updateTouchTarget(x, y);
+  }
+  touchDrag.scrollFrame = requestAnimationFrame(autoScrollBoard);
+}
+
+// follow the finger, or cancel the long press if the user is scrolling
+function handleTouchMove(event) {
+  if (!touchDrag.card) {
+    return;
+  }
+
+  const touch = event.touches[0];
+  touchDrag.lastX = touch.clientX;
+  touchDrag.lastY = touch.clientY;
+
+  if (!touchDrag.active) {
+    const movedX = Math.abs(touch.clientX - touchDrag.startX);
+    const movedY = Math.abs(touch.clientY - touchDrag.startY);
+    if (movedX > MOVE_TOLERANCE || movedY > MOVE_TOLERANCE) {
+      cancelTouchDrag();
+    }
+    return;
+  }
+
+  // stop the page from scrolling while a card is held
+  event.preventDefault();
+  moveGhost(touch.clientX, touch.clientY);
+  updateTouchTarget(touch.clientX, touch.clientY);
+}
+
+// drop the card on the column under the finger
+function handleTouchEnd(event) {
+  if (!touchDrag.active) {
+    cancelTouchDrag();
+    return;
+  }
+
+  event.preventDefault();
+  const target = touchDrag.overList;
+  const id = draggedId;
+  cancelTouchDrag();
+
+  if (target && id !== null) {
+    moveTask(id, target.dataset.status);
+  }
+}
+
+// clean up after a touch drag
+function cancelTouchDrag() {
+  clearTimeout(touchDrag.timer);
+  cancelAnimationFrame(touchDrag.scrollFrame);
+
+  if (touchDrag.ghost) {
+    touchDrag.ghost.remove();
+  }
+
+  touchDrag.timer = null;
+  touchDrag.card = null;
+  touchDrag.ghost = null;
+  touchDrag.overList = null;
+  touchDrag.active = false;
+
+  boardView.classList.remove("is-touch-dragging");
+  document.body.classList.remove("touch-dragging");
+  clearDragState();
+}
+
+
 // other event handlers
 
 // handle clicks on card buttons
@@ -1518,6 +1767,12 @@ function setupEventListeners() {
   boardView.addEventListener("dragstart", handleDragStart);
   boardView.addEventListener("dragend", clearDragState);
 
+  // touch drag and drop
+  boardView.addEventListener("touchstart", handleTouchStart, { passive: true });
+  boardView.addEventListener("touchmove", handleTouchMove, { passive: false });
+  boardView.addEventListener("touchend", handleTouchEnd);
+  boardView.addEventListener("touchcancel", cancelTouchDrag);
+
   dropLists.forEach(function (list) {
     list.addEventListener("dragover", handleDragOver);
     list.addEventListener("dragleave", handleDragLeave);
@@ -1559,6 +1814,9 @@ function setupEventListeners() {
       showToast("All tasks deleted", "delete");
     });
   });
+
+  // profile name
+  nameForm.addEventListener("submit", handleNameSubmit);
 
   // keyboard shortcuts
   document.addEventListener("keydown", handleShortcuts);
@@ -1605,6 +1863,7 @@ function init() {
   loadFilters();
   syncFilterControls();
   showGreeting();
+  showUserName();
   setupEventListeners();
   renderApp();
 

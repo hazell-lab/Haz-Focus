@@ -137,8 +137,8 @@
           <span class="nav-label">Settings</span>
         </button>
         <div class="profile">
-          <span class="avatar" aria-hidden="true">HA</span>
-          <span class="profile-name">Hazim Aqil</span>
+          <span class="avatar" id="profile-avatar" aria-hidden="true">HA</span>
+          <span class="profile-name" id="profile-name">Hazim Aqil</span>
         </div>
       </div>
     </aside>
@@ -181,7 +181,7 @@
         <!-- dashboard overview -->
         <section class="dashboard" id="dashboard-section" aria-label="dashboard overview">
           <div class="hero">
-            <h2 class="hero-title"><span id="greeting-text"></span><span class="hero-name">, Hazim.</span></h2>
+            <h2 class="hero-title"><span id="greeting-text"></span><span class="hero-name" id="hero-name">, Hazim.</span></h2>
             <p class="hero-lede" id="productivity-message"></p>
           </div>
 
@@ -343,6 +343,20 @@
 
         <!-- settings -->
         <section class="settings" id="settings-view" aria-label="settings" hidden>
+          <div class="settings-group">
+            <h2 class="settings-heading">Profile</h2>
+            <form class="setting-row" id="name-form" novalidate>
+              <div>
+                <label class="setting-title" for="name-input">Your name</label>
+                <p class="setting-desc" id="name-desc">Used in the greeting and the sidebar. Leave empty to hide it.</p>
+              </div>
+              <div class="name-field">
+                <input type="text" id="name-input" maxlength="40" autocomplete="name" aria-describedby="name-desc" placeholder="Your name">
+                <button type="submit" class="btn btn-ghost">Save</button>
+              </div>
+            </form>
+          </div>
+
           <div class="settings-group">
             <h2 class="settings-heading">Appearance</h2>
             <div class="setting-row">

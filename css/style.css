@@ -1121,6 +1121,38 @@ select option {
   box-shadow: var(--shadow-md);
 }
 
+/* touch drag: floating copy of the card */
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  margin: 0;
+  box-shadow: var(--shadow-lg);
+  opacity: 0.96;
+  pointer-events: none;
+  animation: none;
+}
+
+.drag-ghost .card-actions {
+  display: none;
+}
+
+/* stop the long press menu and text selection on cards */
+.task-card[draggable="true"] {
+  -webkit-touch-callout: none;
+}
+
+.touch-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* free scrolling while a card is carried across lanes */
+.board.is-touch-dragging {
+  scroll-snap-type: none;
+}
+
 .task-card.dragging {
   opacity: 0.4;
   transform: scale(0.98);
@@ -1453,6 +1485,35 @@ select option {
 .setting-desc {
   color: var(--ink-3);
   font-size: var(--text-sm);
+}
+
+.name-field {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.name-field input {
+  width: 220px;
+  height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color var(--dur), box-shadow var(--dur);
+}
+
+.name-field input:hover {
+  border-color: var(--line-strong);
+}
+
+.name-field input:focus {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+label.setting-title {
+  display: block;
 }
 
 .switch {
@@ -2080,6 +2141,16 @@ select option {
 }
 
 @media (max-width: 520px) {
+  .name-field {
+    width: 100%;
+  }
+
+  .name-field input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+
   .form-row {
     grid-template-columns: 1fr;
     gap: 0;

@@ -87,7 +87,8 @@ You can also open `index.html` directly in a browser. An internet connection is 
 ## Notes
 
 - Sample tasks appear only the first time you open the app. After that, your own saved tasks are used.
-- Drag and drop works with a mouse. On touch screens, use the status dropdown on each task card.
+- Drag and drop works with a mouse, and on touch screens with a long press on a card. The status dropdown on each card also moves tasks.
+- Your name for the greeting can be changed in **Settings**.
 - To reset everything, clear the site data in your browser or use **Settings**.
 
 ## Future improvements
