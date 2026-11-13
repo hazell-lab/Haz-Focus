@@ -61,6 +61,9 @@ const searchInput = document.getElementById("search-input");
 const themeBtn = document.getElementById("theme-btn");
 const themeIcon = document.getElementById("theme-icon");
 const addTaskBtn = document.getElementById("add-task-btn");
+const mobileAddBtn = document.getElementById("mobile-add-btn");
+const header = document.querySelector(".header");
+const content = document.getElementById("content");
 
 // dashboard elements
 const dashboardSection = document.getElementById("dashboard-section");
@@ -73,6 +76,8 @@ const progressPercent = document.getElementById("progress-percent");
 const progressBar = document.getElementById("progress-bar");
 const progressFill = document.getElementById("progress-fill");
 const productivityMessage = document.getElementById("productivity-message");
+const statOverdueWrap = document.getElementById("stat-overdue-wrap");
+const focusList = document.getElementById("focus-list");
 
 // toolbar elements
 const toolbar = document.getElementById("toolbar");
@@ -82,6 +87,10 @@ const filterCategory = document.getElementById("filter-category");
 const filterDue = document.getElementById("filter-due");
 const sortSelect = document.getElementById("sort-select");
 const clearFiltersBtn = document.getElementById("clear-filters-btn");
+const filterToggle = document.getElementById("filter-toggle");
+const filterBadge = document.getElementById("filter-badge");
+const toolbarTitle = document.getElementById("toolbar-title");
+const filterSelects = [filterStatus, filterPriority, filterCategory, filterDue];
 
 // task area elements
 const boardView = document.getElementById("board-view");
@@ -219,17 +228,27 @@ function capitalize(text) {
 
 // icons for each toast type
 const toastIcons = {
-  success: "fa-circle-check",
-  delete: "fa-trash",
-  error: "fa-circle-exclamation"
+  success: "i-check",
+  delete: "i-trash",
+  error: "i-alert"
 };
+
+// build an svg icon from the sprite
+function icon(name) {
+  return `<svg class="icon" aria-hidden="true"><use href="#${name}"/></svg>`;
+}
+
+// check if the user asked for less motion
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 // show a toast message
 function showToast(message, type) {
   const toastType = toastIcons[type] ? type : "success";
   const toast = document.createElement("div");
   toast.className = "toast toast-" + toastType;
-  toast.innerHTML = `<i class="fa-solid ${toastIcons[toastType]}" aria-hidden="true"></i><span>${escapeHtml(message)}</span>`;
+  toast.innerHTML = `${icon(toastIcons[toastType])}<span>${escapeHtml(message)}</span>`;
   toastContainer.appendChild(toast);
 
   // hide the toast after a short time
@@ -414,12 +433,12 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
 
   if (theme === "dark") {
-    themeIcon.className = "fa-solid fa-sun";
+    themeIcon.setAttribute("href", "#i-sun");
     themeBtn.setAttribute("aria-label", "switch to light theme");
     themeSwitch.classList.add("on");
     themeSwitch.setAttribute("aria-checked", "true");
   } else {
-    themeIcon.className = "fa-solid fa-moon";
+    themeIcon.setAttribute("href", "#i-moon");
     themeBtn.setAttribute("aria-label", "switch to dark theme");
     themeSwitch.classList.remove("on");
     themeSwitch.setAttribute("aria-checked", "false");
@@ -439,9 +458,17 @@ function loadTheme() {
 
 // switch theme and save it
 function toggleTheme() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const root = document.documentElement;
+  const isDark = root.getAttribute("data-theme") === "dark";
   const newTheme = isDark ? "light" : "dark";
+
+  // fade colours only while switching, so normal hovers stay fast
+  root.classList.add("theme-transition");
   applyTheme(newTheme);
+  clearTimeout(toggleTheme.timer);
+  toggleTheme.timer = setTimeout(function () {
+    root.classList.remove("theme-transition");
+  }, 360);
   writeStorage(THEME_KEY, newTheme);
 }
 
@@ -566,30 +593,61 @@ function hasActiveFilters() {
 
 // rendering
 
+// short date for cards, like 15 nov (year only when it is not this year)
+function formatShortDate(dateString) {
+  const parts = dateString.split("-");
+  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const options = { day: "numeric", month: "short" };
+  if (date.getFullYear() !== new Date().getFullYear()) {
+    options.year = "numeric";
+  }
+  return date.toLocaleDateString("en-GB", options);
+}
+
+// describe when a task is due, like today, tomorrow or 3 days overdue
+function describeDue(task) {
+  if (!task.dueDate) {
+    return "";
+  }
+  const today = new Date(getTodayString());
+  const due = new Date(task.dueDate);
+  const days = Math.round((due - today) / 86400000);
+
+  if (days === 0) {
+    return "Today";
+  }
+  if (days === 1) {
+    return "Tomorrow";
+  }
+  if (days === -1) {
+    return "Yesterday";
+  }
+  return formatShortDate(task.dueDate);
+}
+
 // build html for one task card
 function createTaskCard(task, canDrag) {
   const isDone = task.status === "completed";
-  let dueClass = "due-normal";
-  let dueBadge = "";
+  let dueClass = "";
+  let dueText = describeDue(task);
 
   if (isOverdue(task)) {
     dueClass = "due-overdue";
-    dueBadge = '<span class="badge badge-overdue">Overdue</span>';
-  } else if (isDueToday(task)) {
+    dueText = dueText + " · Overdue";
+  } else if (isDueToday(task) && !isDone) {
     dueClass = "due-today";
-    dueBadge = '<span class="badge badge-today">Due today</span>';
-  } else if (isUpcoming(task)) {
-    dueClass = "due-upcoming";
   }
 
   const description = task.description
     ? `<p class="task-desc">${escapeHtml(task.description)}</p>`
     : "";
 
+  const dueMeta = task.dueDate
+    ? `<span class="meta ${dueClass}" title="Due ${formatDate(task.dueDate)}">${icon("i-calendar")}${dueText}</span>`
+    : "";
+
   const completeAction = isDone ? "restore" : "complete";
-  const completeIcon = isDone ? "fa-rotate-left" : "fa-check";
   const completeLabel = isDone ? "Restore task" : "Complete task";
-  const completeText = isDone ? "<span>Restore</span>" : "";
   const draggableAttr = canDrag ? 'draggable="true"' : "";
 
   // options for the move select box
@@ -602,42 +660,34 @@ function createTaskCard(task, canDrag) {
 
   return `
     <article class="task-card ${isDone ? "is-completed" : ""}" data-id="${task.id}" data-priority="${task.priority}" ${draggableAttr}>
-      <div class="card-top">
-        <span class="priority priority-${task.priority}">
-          <span class="priority-dot"></span>${task.priority}
-        </span>
-        <span class="category-tag">${escapeHtml(task.category)}</span>
-      </div>
+      <button type="button" class="check" data-action="${completeAction}" data-id="${task.id}" aria-label="${completeLabel}: ${escapeHtml(task.title)}" title="${completeLabel}">
+        ${icon("i-check")}
+      </button>
 
-      <h3 class="task-title">${escapeHtml(task.title)}</h3>
-      ${description}
+      <div class="task-body">
+        <h3 class="task-title"><span class="task-title-text">${escapeHtml(task.title)}</span></h3>
+        ${description}
 
-      <div class="card-meta">
-        <span class="due-date ${dueClass}">
-          <i class="fa-regular fa-calendar" aria-hidden="true"></i>${formatDate(task.dueDate)}
-        </span>
-        ${dueBadge}
-        <span class="status-badge status-${task.status}">${statusLabels[task.status]}</span>
-      </div>
-
-      <div class="card-footer">
-        <div>
-          <label class="visually-hidden" for="move-${task.id}">Move task to another column</label>
+        <div class="card-meta">
+          <span class="meta prio-${task.priority}" title="${capitalize(task.priority)} priority">
+            <span class="prio-bars" aria-hidden="true"><i></i><i></i><i></i></span>${capitalize(task.priority)}
+          </span>
+          ${dueMeta}
+          <span class="meta meta-cat"><span class="category-dot dot-${task.category}"></span>${capitalize(task.category)}</span>
+          <label class="visually-hidden" for="move-${task.id}">Status of ${escapeHtml(task.title)}</label>
           <select class="move-select" id="move-${task.id}" data-id="${task.id}">
             ${moveOptions}
           </select>
         </div>
-        <div class="card-actions">
-          <button type="button" class="action-btn action-complete" data-action="${completeAction}" data-id="${task.id}" aria-label="${completeLabel}: ${escapeHtml(task.title)}">
-            <i class="fa-solid ${completeIcon}" aria-hidden="true"></i>${completeText}
-          </button>
-          <button type="button" class="action-btn action-edit" data-action="edit" data-id="${task.id}" aria-label="Edit task: ${escapeHtml(task.title)}">
-            <i class="fa-solid fa-pen" aria-hidden="true"></i>
-          </button>
-          <button type="button" class="action-btn action-delete" data-action="delete" data-id="${task.id}" aria-label="Delete task: ${escapeHtml(task.title)}">
-            <i class="fa-solid fa-trash" aria-hidden="true"></i>
-          </button>
-        </div>
+      </div>
+
+      <div class="card-actions">
+        <button type="button" class="action-btn action-edit" data-action="edit" data-id="${task.id}" aria-label="Edit task: ${escapeHtml(task.title)}" title="Edit">
+          ${icon("i-edit")}
+        </button>
+        <button type="button" class="action-btn action-delete" data-action="delete" data-id="${task.id}" aria-label="Delete task: ${escapeHtml(task.title)}" title="Delete">
+          ${icon("i-trash")}
+        </button>
       </div>
     </article>
   `;
@@ -656,7 +706,7 @@ function renderBoard(visibleTasks) {
     countElement.textContent = columnTasks.length;
 
     if (columnTasks.length === 0) {
-      listElement.innerHTML = '<p class="column-empty">No tasks here. Drag a task into this column.</p>';
+      listElement.innerHTML = '<p class="column-empty">Nothing here yet. Drag a task in.</p>';
       return;
     }
 
@@ -793,18 +843,36 @@ function updateCounts() {
   });
 }
 
-// get a short productivity message
-function getProductivityMessage(total, pending, overdue, percent) {
-  if (total === 0 || pending === 0) {
-    return "You're all caught up.";
+// pick singular or plural words
+function plural(count, word) {
+  return count + " " + word + (count === 1 ? "" : "s");
+}
+
+// get a short summary sentence built from the real task data
+function getProductivityMessage(total, pending, overdue) {
+  if (total === 0) {
+    return "A blank page. Add your first task to begin.";
   }
-  if (overdue > 0) {
-    return "You have tasks that need attention.";
+  if (pending === 0) {
+    return "Everything is done. Enjoy the quiet.";
   }
-  if (percent >= 50) {
-    return "Great progress today.";
+
+  const dueToday = tasks.filter(function (task) {
+    return isDueToday(task) && task.status !== "completed";
+  }).length;
+  const inProgress = tasks.filter(function (task) {
+    return task.status === "inprogress";
+  }).length;
+  const attention = dueToday + overdue;
+
+  if (attention > 0) {
+    const overdueText = overdue > 0 ? `, ${overdue} of them overdue` : "";
+    return `${plural(attention, "task")} ${attention === 1 ? "needs" : "need"} you today${overdueText}.`;
   }
-  return "Stay focused and take one task at a time.";
+  if (inProgress > 0) {
+    return `${plural(inProgress, "task")} in progress and nothing due today.`;
+  }
+  return `${plural(pending, "task")} waiting, nothing due today.`;
 }
 
 // update statistics
@@ -827,6 +895,42 @@ function updateStatistics() {
   progressFill.style.width = percent + "%";
   progressBar.setAttribute("aria-valuenow", percent);
   productivityMessage.textContent = getProductivityMessage(total, pending, overdue, percent);
+  statOverdueWrap.classList.toggle("has-overdue", overdue > 0);
+}
+
+// show overdue and due today tasks on the dashboard, most important first
+function renderFocus() {
+  const attention = tasks
+    .filter(function (task) {
+      return task.status !== "completed" && (isOverdue(task) || isDueToday(task));
+    })
+    .sort(function (a, b) {
+      if (a.dueDate !== b.dueDate) {
+        return a.dueDate.localeCompare(b.dueDate);
+      }
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+    .slice(0, 5);
+
+  if (attention.length === 0) {
+    focusList.innerHTML = '<li class="focus-empty">Nothing overdue or due today. A clear runway.</li>';
+    return;
+  }
+
+  focusList.innerHTML = attention
+    .map(function (task) {
+      const overdue = isOverdue(task);
+      return `
+        <li class="focus-item">
+          <button type="button" class="focus-row" data-action="edit" data-id="${task.id}" aria-label="Open task: ${escapeHtml(task.title)}">
+            <span class="meta prio-${task.priority}" title="${capitalize(task.priority)} priority"><span class="prio-bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
+            <span class="focus-title">${escapeHtml(task.title)}</span>
+            <span class="focus-when ${overdue ? "is-overdue" : ""}">${overdue ? "Overdue · " + formatShortDate(task.dueDate) : "Due today"}</span>
+          </button>
+        </li>
+      `;
+    })
+    .join("");
 }
 
 // update the whole page
@@ -836,7 +940,28 @@ function renderApp() {
   updatePageTitle();
   updateStatistics();
   updateCounts();
+  updateFilterState();
+  if (currentView === "dashboard") {
+    renderFocus();
+  }
   renderTasks();
+}
+
+// show which filters are active
+function updateFilterState() {
+  let active = 0;
+  filterSelects.forEach(function (select) {
+    const isSet = select.value !== "all";
+    select.parentElement.classList.toggle("is-set", isSet);
+    if (isSet) {
+      active += 1;
+    }
+  });
+  filterBadge.textContent = active;
+  filterBadge.hidden = active === 0;
+
+  const useBoard = currentView === "dashboard" || currentView === "all";
+  toolbarTitle.textContent = useBoard ? "Board" : plural(getVisibleTasks().length, "task");
 }
 
 
@@ -983,7 +1108,7 @@ function openTaskModal(taskId) {
   } else {
     // add mode
     editingId = null;
-    modalTitle.textContent = "Add new task";
+    modalTitle.textContent = "New task";
     submitBtn.textContent = "Add task";
     statusInput.value = "todo";
   }
@@ -1178,7 +1303,17 @@ function handleCardClick(event) {
   const action = button.dataset.action;
 
   if (action === "complete") {
-    completeTask(id);
+    const card = button.closest(".task-card");
+    if (card && !prefersReducedMotion()) {
+      // let the check and strike animation play before the card moves
+      card.classList.add("is-completing");
+      button.disabled = true;
+      setTimeout(function () {
+        completeTask(id);
+      }, 380);
+    } else {
+      completeTask(id);
+    }
   } else if (action === "restore") {
     restoreTask(id);
   } else if (action === "edit") {
@@ -1277,7 +1412,16 @@ function setView(view) {
   saveFilters();
   closeSidebar();
   renderApp();
+  playViewTransition();
   window.scrollTo(0, 0);
+}
+
+// fade the content in after the view changes
+function playViewTransition() {
+  content.classList.remove("view-enter");
+  // force a reflow so the animation can restart
+  void content.offsetWidth;
+  content.classList.add("view-enter");
 }
 
 // filter by a category from the sidebar
@@ -1294,6 +1438,7 @@ function selectCategory(category) {
   saveFilters();
   closeSidebar();
   renderApp();
+  playViewTransition();
   window.scrollTo(0, 0);
 }
 
@@ -1329,6 +1474,31 @@ function setupEventListeners() {
 
   emptyAddBtn.addEventListener("click", function () {
     openTaskModal();
+  });
+
+  mobileAddBtn.addEventListener("click", function () {
+    openTaskModal();
+  });
+
+  // dashboard links like view today
+  document.querySelectorAll("[data-goto]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      setView(button.dataset.goto);
+    });
+  });
+
+  // needs attention rows open the task
+  focusList.addEventListener("click", handleCardClick);
+
+  // show a hairline under the header once the page scrolls
+  window.addEventListener("scroll", function () {
+    header.classList.toggle("scrolled", window.scrollY > 4);
+  }, { passive: true });
+
+  // open and close the filter panel on small screens
+  filterToggle.addEventListener("click", function () {
+    const isOpen = toolbar.classList.toggle("filters-open");
+    filterToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
   // filters
@@ -1390,12 +1560,42 @@ function setupEventListeners() {
     });
   });
 
-  // close the mobile menu with escape
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-      closeSidebar();
+  // keyboard shortcuts
+  document.addEventListener("keydown", handleShortcuts);
+}
+
+// views for the number keys
+const shortcutViews = ["dashboard", "all", "today", "upcoming", "completed"];
+
+// handle keyboard shortcuts
+function handleShortcuts(event) {
+  if (event.key === "Escape") {
+    // clear the search box first, then close the menu
+    if (document.activeElement === searchInput && searchInput.value !== "") {
+      searchInput.value = "";
+      handleSearch();
+      return;
     }
-  });
+    closeSidebar();
+    return;
+  }
+
+  // ignore shortcuts while typing, with modifier keys or when a dialog is open
+  const target = event.target;
+  const isTyping = target.closest("input, textarea, select, [contenteditable]");
+  if (isTyping || event.ctrlKey || event.metaKey || event.altKey || taskModal.open || confirmModal.open) {
+    return;
+  }
+
+  if (event.key === "n" || event.key === "N") {
+    event.preventDefault();
+    openTaskModal();
+  } else if (event.key === "/") {
+    event.preventDefault();
+    searchInput.focus();
+  } else if (/^[1-5]$/.test(event.key)) {
+    setView(shortcutViews[Number(event.key) - 1]);
+  }
 }
 
 // start the app

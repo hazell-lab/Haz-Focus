@@ -1,6 +1,6 @@
 # HazFocus
 
-A modern kanban-style task and productivity app built with plain HTML, CSS and JavaScript.
+A calm, editorial kanban-style task and productivity app built with plain HTML, CSS and JavaScript.
 
 **[🔗 Live Demo](https://productivity-app-hazim.netlify.app/)** · [Source code](https://github.com/hazell-lab/Haz-Focus) · [Portfolio](https://hazimaqil-portfolio.netlify.app)
 
@@ -27,9 +27,13 @@ This project was built to practice core frontend skills without any framework or
 - **Sorting** by newest, oldest, due date, priority or alphabetical order
 - **Search** by title, description or category
 - **Statistics** (total, completed, pending, overdue) and a progress bar
+- **Needs attention** list on the dashboard with overdue and due-today tasks
+- **Keyboard shortcuts**: `N` new task, `/` search, `1`–`5` switch views, `Esc` close or clear
 - **Views** for Dashboard, All tasks, Today, Upcoming and Completed
 - **localStorage** for tasks, filters and theme
-- Light and dark theme, toast notifications, empty states and responsive design
+- Paper (light) and night (dark) themes, toast notifications, empty states
+- Responsive design with a bottom tab bar, swipeable board lanes and bottom-sheet dialogs on phones
+- Respects reduced-motion preferences
 
 ## Technologies
 
@@ -37,7 +41,7 @@ This project was built to practice core frontend skills without any framework or
 - CSS3 (custom properties, grid, flexbox, media queries)
 - JavaScript (vanilla, ES6)
 - localStorage
-- Google Fonts (Inter) and Font Awesome icons
+- Google Fonts (Newsreader and Inter) and an inline SVG icon sprite
 
 ## JavaScript concepts demonstrated
 
@@ -78,12 +82,12 @@ Haz-Focus/
 4. Right-click `index.html` and choose **Open with Live Server**.
 5. The app opens in your browser at `http://127.0.0.1:5500`.
 
-You can also open `index.html` directly in a browser. An internet connection is needed for the Google Fonts and Font Awesome icons.
+You can also open `index.html` directly in a browser. An internet connection is needed for the Google Fonts (the app falls back to system fonts without it).
 
 ## Notes
 
 - Sample tasks appear only the first time you open the app. After that, your own saved tasks are used.
-- Drag and drop works with a mouse. On touch screens, use the move dropdown on each task card.
+- Drag and drop works with a mouse. On touch screens, use the status dropdown on each task card.
 - To reset everything, clear the site data in your browser or use **Settings**.
 
 ## Future improvements
