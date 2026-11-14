@@ -27,7 +27,8 @@ This project was built to practice core frontend skills without any framework or
 - **Sorting** by newest, oldest, due date, priority or alphabetical order
 - **Search** by title, description or category
 - **Statistics** (total, completed, pending, overdue) and a progress bar
-- **Needs attention** list on the dashboard with overdue and due-today tasks
+- **Workspace dashboard** with an agenda (overdue, today and the next dated tasks grouped by day), area progress per category and a last 7 days chart of completed tasks and focus minutes, all from your own data
+- **Schedule view**: when sorted by due date, task lists are grouped under day headings
 - **Focus timer** (Pomodoro): 25 minute focus sessions, short breaks and a long break after every fourth session, with adjustable lengths, a soft chime, a "working on" task, today's focus time and a distraction-free mode
 - **Keyboard shortcuts**: `N` new task, `/` search, `1`–`6` switch views, `Space` start or pause the timer, `R` reset it, `F` hide distractions, `Esc` close or clear
 - **Views** for Dashboard, All tasks, Today, Upcoming and Completed
@@ -38,7 +39,7 @@ This project was built to practice core frontend skills without any framework or
 
 ## Design
 
-HazFocus uses one sans family (Inter) with weight and size for hierarchy, cool slate neutrals and a single calm teal accent (`#0f766e` in light, `#2dd4bf` in dark). Red is kept only for overdue and high-priority status. Cards and inputs use soft 10 to 16px corners, the board lanes are tinted surfaces and status chips are pills. All colour tokens live at the top of `css/style.css` and every text pair meets WCAG AA in both themes. Screenshots of the dashboard, board and focus view in both themes, at desktop and phone width, are in [`docs/slate-teal`](docs/slate-teal).
+HazFocus uses one sans family (Inter) with weight and size for hierarchy, cool slate neutrals and a single calm teal accent (`#0f766e` in light, `#2dd4bf` in dark). Red is kept only for overdue and high-priority status. Cards and inputs use soft 10 to 16px corners, the board lanes are tinted surfaces and status chips are pills. All colour tokens live at the top of `css/style.css` and every text pair meets WCAG AA in both themes. Screenshots of the dashboard, board and focus view in both themes, at desktop and phone width, are in [`docs/slate-teal`](docs/slate-teal). The full design notes, audit and colour tokens are in [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## Technologies
 
@@ -73,7 +74,10 @@ Haz-Focus/
 │   └── icons/
 │       └── favicon.svg
 └── docs/
-    └── screenshot.png
+    ├── DESIGN.md
+    ├── screenshot.png
+    ├── redesign/
+    └── slate-teal/
 ```
 
 ## Setup
@@ -103,7 +107,7 @@ You can also open `index.html` directly in a browser. An internet connection is 
 - Cloud synchronization
 - Recurring tasks
 - Reminders and notifications
-- Calendar view
+- Month calendar view
 - Subtasks
 - Team collaboration
 - A React version of the project
