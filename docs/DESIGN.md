@@ -45,16 +45,17 @@ All tokens are custom properties at the top of `css/style.css`. The dark theme o
 
 ## 3. Independence from my other projects
 
-The portfolio uses a warm near-black and cream palette, an orange accent, a serif display font and cream pill buttons. An earlier HazFocus redesign borrowed that same editorial look, so the two read like one template. This version deliberately moves away from it:
+All three projects had drifted into one look: warm off-white or brown-black backgrounds, a serif display with italics, mono labels and a red or orange accent. An earlier HazFocus redesign shared that editorial style. They have since been split so each one reads as its own product:
 
-| | Portfolio | HazFocus |
-|---|---|---|
-| Palette | warm black, cream | cool slate, deep navy |
-| Accent | orange | teal |
-| Type | serif display plus sans | one sans (Inter) |
-| Feel | editorial, showcase | quiet utility, workspace |
+| | Portfolio | HazStore | HazFocus |
+|---|---|---|---|
+| Role | an editorial page to read | a shop to browse | a tool to use every day |
+| Palette | cool paper white `#f6f7f9`, blue-black ink | black and white | cool slate, deep navy in dark mode |
+| Accent | ultramarine `#2a3fd9` | signal yellow | teal `#0f766e` / `#2dd4bf` |
+| Type | Instrument Serif display, Schibsted Grotesk, JetBrains Mono | bold commercial grotesk | Inter only |
+| Shapes | 12-column grid, hairline rules, no cards | product grid | soft cards, tinted lanes, pill chips |
 
-I compared HazFocus against the live portfolio. The e-commerce project (HazStore) wasn't available to inspect, so it isn't compared here beyond avoiding its known editorial style.
+The portfolio column comes from the live portfolio code (`css/style.css` and its `DESIGN.md`, November 2026). The HazStore column comes from the portfolio's design notes; I didn't inspect HazStore itself for this document.
 
 ## 4. Workspace features (all from real data)
 
