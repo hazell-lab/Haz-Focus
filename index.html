@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="HazFocus is a calm kanban style task and productivity app built with html, css and javascript.">
-  <meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#141311" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
   <title>Dashboard | HazFocus</title>
 
   <!-- favicon -->
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
 
-  <!-- google fonts: newsreader for display, inter for interface -->
+  <!-- google fonts: inter for the whole interface -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- main styles -->
   <link rel="stylesheet" href="css/style.css">
@@ -196,24 +196,36 @@
           </div>
 
           <div class="overview-grid">
-            <!-- numbers -->
+            <!-- agenda for the next seven days -->
+            <div class="agenda-col">
+              <div class="section-head">
+                <h2 class="section-title">Agenda</h2>
+                <button type="button" class="link-btn" data-goto="upcoming">
+                  All upcoming
+                  <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+                </button>
+              </div>
+              <div class="agenda" id="agenda"></div>
+            </div>
+
+            <!-- numbers, areas and the week -->
             <div class="overview-stats">
               <dl class="stats">
                 <div class="stat">
-                  <dt>Total</dt>
-                  <dd id="stat-total">0</dd>
-                </div>
-                <div class="stat">
-                  <dt>Pending</dt>
+                  <dt>Open</dt>
                   <dd id="stat-pending">0</dd>
                 </div>
                 <div class="stat">
-                  <dt>Completed</dt>
-                  <dd id="stat-completed">0</dd>
+                  <dt>Due today</dt>
+                  <dd id="stat-today">0</dd>
                 </div>
                 <div class="stat stat-overdue" id="stat-overdue-wrap">
                   <dt>Overdue</dt>
                   <dd id="stat-overdue">0</dd>
+                </div>
+                <div class="stat">
+                  <dt>Done</dt>
+                  <dd id="stat-completed">0</dd>
                 </div>
               </dl>
 
@@ -226,21 +238,33 @@
                   <div class="progress-fill" id="progress-fill"></div>
                 </div>
               </div>
-            </div>
 
-            <!-- tasks that need attention now -->
-            <div class="focus">
-              <div class="section-head">
-                <h2 class="section-title">Needs attention</h2>
-                <button type="button" class="link-btn" data-goto="today">
-                  View today
-                  <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
-                </button>
+              <!-- progress per category -->
+              <div class="areas" id="areas-block">
+                <h2 class="section-title">Areas</h2>
+                <ul class="area-list" id="area-list"></ul>
               </div>
-              <ol class="focus-list" id="focus-list"></ol>
+
+              <!-- the last seven days -->
+              <div class="week">
+                <div class="section-head">
+                  <h2 class="section-title">Last 7 days</h2>
+                  <p class="week-summary" id="week-summary"></p>
+                </div>
+                <p class="week-caption">Tasks completed per day</p>
+                <div class="week-chart" id="week-chart"></div>
+                <table class="visually-hidden" id="week-table">
+                  <caption>Tasks completed and minutes focused in the last 7 days</caption>
+                  <thead><tr><th scope="col">Day</th><th scope="col">Tasks completed</th><th scope="col">Minutes focused</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
+
+        <!-- summary when one category is open -->
+        <section class="area-summary" id="area-summary" aria-label="category summary" hidden></section>
 
         <!-- filters and sorting -->
         <section class="toolbar" id="toolbar" aria-label="filters and sorting">
@@ -425,7 +449,7 @@
             <div class="setting-row">
               <div>
                 <p class="setting-title">Dark mode</p>
-                <p class="setting-desc">Switch between the paper and night themes.</p>
+                <p class="setting-desc">Switch between the day and night themes.</p>
               </div>
               <button type="button" class="switch" id="theme-switch" role="switch" aria-checked="false" aria-label="toggle dark mode">
                 <span class="switch-knob"></span>

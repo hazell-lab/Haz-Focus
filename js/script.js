@@ -6,6 +6,7 @@ const NAME_KEY = "HazFocus-name";
 const FOCUS_KEY = "HazFocus-focus";
 const FOCUS_SETTINGS_KEY = "HazFocus-focus-settings";
 const FOCUS_LOG_KEY = "HazFocus-focus-log";
+const FOCUS_HISTORY_KEY = "HazFocus-focus-history";
 const DEFAULT_NAME = "Hazim Aqil";
 
 // labels and settings
@@ -73,7 +74,7 @@ const content = document.getElementById("content");
 
 // dashboard elements
 const dashboardSection = document.getElementById("dashboard-section");
-const statTotal = document.getElementById("stat-total");
+const statToday = document.getElementById("stat-today");
 const statCompleted = document.getElementById("stat-completed");
 const statPending = document.getElementById("stat-pending");
 const statOverdue = document.getElementById("stat-overdue");
@@ -83,7 +84,13 @@ const progressBar = document.getElementById("progress-bar");
 const progressFill = document.getElementById("progress-fill");
 const productivityMessage = document.getElementById("productivity-message");
 const statOverdueWrap = document.getElementById("stat-overdue-wrap");
-const focusList = document.getElementById("focus-list");
+const agenda = document.getElementById("agenda");
+const areaList = document.getElementById("area-list");
+const areasBlock = document.getElementById("areas-block");
+const weekChart = document.getElementById("week-chart");
+const weekSummary = document.getElementById("week-summary");
+const weekTableBody = document.querySelector("#week-table tbody");
+const areaSummary = document.getElementById("area-summary");
 
 // toolbar elements
 const toolbar = document.getElementById("toolbar");
@@ -347,7 +354,8 @@ function getSampleTasks() {
       priority: "low",
       dueDate: today,
       status: "completed",
-      createdAt: today
+      createdAt: today,
+      completedAt: today
     },
     {
       id: now + 4,
@@ -434,7 +442,9 @@ function normalizeTask(task, index) {
     priority: priorityOrder[task.priority] ? task.priority : "medium",
     dueDate: typeof task.dueDate === "string" ? task.dueDate : "",
     status: statuses.includes(task.status) ? task.status : "todo",
-    createdAt: task.createdAt || getTodayString()
+    createdAt: task.createdAt || getTodayString(),
+    // only kept when known, older tasks have no completion date
+    completedAt: task.status === "completed" && typeof task.completedAt === "string" ? task.completedAt : ""
   };
 }
 
@@ -770,9 +780,54 @@ function renderBoard(visibleTasks) {
 
 // show tasks in a simple grid
 function renderList(visibleTasks) {
-  taskGrid.innerHTML = visibleTasks
-    .map(function (task) {
-      return createTaskCard(task, false);
+  // sorted by due date, the list reads like a schedule with day headings
+  const groupByDay = filters.sort === "due" && currentView !== "completed";
+
+  if (!groupByDay) {
+    taskGrid.innerHTML = visibleTasks
+      .map(function (task) {
+        return createTaskCard(task, false);
+      })
+      .join("");
+    return;
+  }
+
+  const groups = [];
+  visibleTasks.forEach(function (task) {
+    let key = "none";
+    let title = "No due date";
+    let date = "";
+    if (task.dueDate && isOverdue(task)) {
+      key = "overdue";
+      title = "Overdue";
+    } else if (task.dueDate) {
+      key = task.dueDate;
+      title = dayHeading(task.dueDate);
+      // days far away read better as a date
+      if (daysFromToday(task.dueDate) > 6 || daysFromToday(task.dueDate) < 0) {
+        title = shortDayDate(task.dueDate);
+      } else {
+        date = headingDate(task.dueDate);
+      }
+    }
+    let group = groups.find(function (item) {
+      return item.key === key;
+    });
+    if (!group) {
+      group = { key: key, title: title, date: date, tasks: [] };
+      groups.push(group);
+    }
+    group.tasks.push(task);
+  });
+
+  taskGrid.innerHTML = groups
+    .map(function (group) {
+      return `
+        <section class="schedule-group ${group.key === "overdue" ? "is-overdue" : ""}" aria-label="${group.title}">
+          <h3 class="schedule-day"><span>${group.title}</span>${group.date ? `<span class="agenda-date">${group.date}</span>` : ""}<span class="schedule-count">${group.tasks.length}</span></h3>
+          <div class="schedule-items">${group.tasks.map(function (task) { return createTaskCard(task, false); }).join("")}</div>
+        </section>
+      `;
     })
     .join("");
 }
@@ -926,7 +981,7 @@ function getProductivityMessage(total, pending, overdue) {
     return `${plural(attention, "task")} ${attention === 1 ? "needs" : "need"} you today${overdueText}.`;
   }
   if (inProgress > 0) {
-    return `${plural(inProgress, "task")} in progress and nothing due today.`;
+    return `${plural(inProgress, "task")} in progress, nothing due today.`;
   }
   return `${plural(pending, "task")} waiting, nothing due today.`;
 }
@@ -941,7 +996,9 @@ function updateStatistics() {
   const overdue = tasks.filter(isOverdue).length;
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-  statTotal.textContent = total;
+  statToday.textContent = tasks.filter(function (task) {
+    return isDueToday(task) && task.status !== "completed";
+  }).length;
   statCompleted.textContent = completed;
   statPending.textContent = pending;
   statOverdue.textContent = overdue;
@@ -954,39 +1011,259 @@ function updateStatistics() {
   statOverdueWrap.classList.toggle("has-overdue", overdue > 0);
 }
 
-// show overdue and due today tasks on the dashboard, most important first
-function renderFocus() {
-  const attention = tasks
+// date helpers for the agenda and schedule
+
+// turn yyyy-mm-dd into a local date
+function parseDate(dateString) {
+  const parts = dateString.split("-");
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+}
+
+// whole days from today, negative for the past
+function daysFromToday(dateString) {
+  return Math.round((parseDate(dateString) - parseDate(getTodayString())) / 86400000);
+}
+
+// a heading like today, tomorrow or monday
+function dayHeading(dateString) {
+  const days = daysFromToday(dateString);
+  if (days === 0) {
+    return "Today";
+  }
+  if (days === 1) {
+    return "Tomorrow";
+  }
+  return parseDate(dateString).toLocaleDateString("en-GB", { weekday: "long" });
+}
+
+// date shown next to a day heading, without repeating the weekday
+function headingDate(dateString) {
+  const days = daysFromToday(dateString);
+  if (days === 0 || days === 1) {
+    return shortDayDate(dateString);
+  }
+  return parseDate(dateString).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+// a short date like sun 15 nov
+function shortDayDate(dateString) {
+  return parseDate(dateString).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
+// one row in the agenda
+function agendaRow(task) {
+  return `
+    <li>
+      <button type="button" class="focus-row" data-action="edit" data-id="${task.id}" aria-label="Open task: ${escapeHtml(task.title)}">
+        <span class="meta prio-${task.priority}" title="${capitalize(task.priority)} priority"><span class="prio-bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
+        <span class="focus-title">${escapeHtml(task.title)}</span>
+        <span class="agenda-cat"><span class="category-dot dot-${task.category}"></span>${capitalize(task.category)}</span>
+      </button>
+    </li>
+  `;
+}
+
+// overdue, today and the next six days, most important first
+const AGENDA_LIMIT = 8;
+
+function renderAgenda() {
+  const open = tasks
     .filter(function (task) {
-      return task.status !== "completed" && (isOverdue(task) || isDueToday(task));
+      return task.status !== "completed" && task.dueDate && daysFromToday(task.dueDate) <= 6;
     })
     .sort(function (a, b) {
       if (a.dueDate !== b.dueDate) {
         return a.dueDate.localeCompare(b.dueDate);
       }
       return priorityOrder[a.priority] - priorityOrder[b.priority];
-    })
-    .slice(0, 5);
+    });
 
-  if (attention.length === 0) {
-    focusList.innerHTML = '<li class="focus-empty">Nothing overdue or due today. A clear runway.</li>';
+  if (open.length === 0) {
+    agenda.innerHTML = '<p class="focus-empty">Nothing due in the next 7 days.</p>';
     return;
   }
 
-  focusList.innerHTML = attention
-    .map(function (task) {
-      const overdue = isOverdue(task);
+  // group rows under overdue or a day heading
+  const groups = [];
+  open.slice(0, AGENDA_LIMIT).forEach(function (task) {
+    const overdue = isOverdue(task);
+    const key = overdue ? "overdue" : task.dueDate;
+    let group = groups.find(function (item) {
+      return item.key === key;
+    });
+    if (!group) {
+      group = {
+        key: key,
+        title: overdue ? "Overdue" : dayHeading(task.dueDate),
+        date: overdue ? "" : headingDate(task.dueDate),
+        overdue: overdue,
+        tasks: []
+      };
+      groups.push(group);
+    }
+    group.tasks.push(task);
+  });
+
+  const more = open.length - AGENDA_LIMIT;
+  agenda.innerHTML = groups
+    .map(function (group) {
       return `
-        <li class="focus-item">
-          <button type="button" class="focus-row" data-action="edit" data-id="${task.id}" aria-label="Open task: ${escapeHtml(task.title)}">
-            <span class="meta prio-${task.priority}" title="${capitalize(task.priority)} priority"><span class="prio-bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
-            <span class="focus-title">${escapeHtml(task.title)}</span>
-            <span class="focus-when ${overdue ? "is-overdue" : ""}">${overdue ? "Overdue · " + formatShortDate(task.dueDate) : "Due today"}</span>
+        <section class="agenda-group ${group.overdue ? "is-overdue" : ""}">
+          <h3 class="agenda-day"><span>${group.title}</span>${group.date ? `<span class="agenda-date">${group.date}</span>` : ""}</h3>
+          <ol class="focus-list">${group.tasks.map(agendaRow).join("")}</ol>
+        </section>
+      `;
+    })
+    .join("") + (more > 0 ? `<p class="agenda-more">${plural(more, "more task")} this week in Upcoming</p>` : "");
+}
+
+// progress for each category that has tasks
+function renderAreas() {
+  const rows = categories
+    .map(function (category) {
+      const list = tasks.filter(function (task) {
+        return task.category === category;
+      });
+      const done = list.filter(function (task) {
+        return task.status === "completed";
+      }).length;
+      return { category: category, total: list.length, done: done };
+    })
+    .filter(function (row) {
+      return row.total > 0;
+    });
+
+  areasBlock.hidden = rows.length === 0;
+  areaList.innerHTML = rows
+    .map(function (row) {
+      const percent = Math.round((row.done / row.total) * 100);
+      return `
+        <li>
+          <button type="button" class="area-row" data-area="${row.category}" aria-label="${capitalize(row.category)}: ${row.done} of ${row.total} done">
+            <span class="area-name"><span class="category-dot dot-${row.category}"></span>${capitalize(row.category)}</span>
+            <span class="area-count">${row.done}/${row.total}</span>
+            <span class="area-bar" aria-hidden="true"><span class="area-fill dot-${row.category}" style="width: ${percent}%"></span></span>
           </button>
         </li>
       `;
     })
     .join("");
+}
+
+// tasks completed and focus minutes for the last seven days
+function getWeekActivity() {
+  const history = getFocusHistory();
+  const days = [];
+  for (let offset = 6; offset >= 0; offset--) {
+    const date = new Date();
+    date.setDate(date.getDate() - offset);
+    const key = formatDateInput(date);
+    days.push({
+      key: key,
+      label: date.toLocaleDateString("en-GB", { weekday: "short" }),
+      long: shortDayDate(key),
+      tasks: tasks.filter(function (task) {
+        return task.completedAt === key;
+      }).length,
+      minutes: history[key] || 0,
+      isToday: offset === 0
+    });
+  }
+  return days;
+}
+
+// small column chart, one column per day
+function renderWeek() {
+  const days = getWeekActivity();
+  const totalTasks = days.reduce(function (sum, day) { return sum + day.tasks; }, 0);
+  const totalMinutes = days.reduce(function (sum, day) { return sum + day.minutes; }, 0);
+  const peak = Math.max.apply(null, days.map(function (day) { return day.tasks; }));
+  const scale = Math.max(peak, 1);
+
+  if (totalTasks === 0 && totalMinutes === 0) {
+    weekSummary.textContent = "";
+  } else {
+    const parts = [plural(totalTasks, "task")];
+    if (totalMinutes > 0) {
+      parts.push(totalMinutes + " min focus");
+    }
+    weekSummary.textContent = parts.join(" · ");
+  }
+
+  // label only the peak and today, the tooltip and table carry the rest
+  let peakLabelled = false;
+  weekChart.innerHTML = days
+    .map(function (day) {
+      const height = day.tasks === 0 ? 0 : Math.max(8, Math.round((day.tasks / scale) * 100));
+      let label = "";
+      if (day.tasks > 0 && (day.isToday || (day.tasks === peak && !peakLabelled))) {
+        label = `<span class="week-value">${day.tasks}</span>`;
+        if (day.tasks === peak) {
+          peakLabelled = true;
+        }
+      }
+      const tip = `${day.long}: ${plural(day.tasks, "task")} completed${day.minutes > 0 ? `, ${day.minutes} min focus` : ""}`;
+      return `
+        <div class="week-day ${day.isToday ? "is-today" : ""}" tabindex="0" role="img" aria-label="${tip}" data-tip="${tip}">
+          <div class="week-plot">
+            ${label}
+            <span class="week-bar" style="height: ${height}%"></span>
+          </div>
+          <span class="week-label">${day.isToday ? "Today" : day.label}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  weekTableBody.innerHTML = days
+    .map(function (day) {
+      return `<tr><th scope="row">${day.long}</th><td>${day.tasks}</td><td>${day.minutes}</td></tr>`;
+    })
+    .join("");
+
+  weekChart.classList.toggle("is-empty", totalTasks === 0);
+}
+
+// summary strip above the board when one category is open
+function renderAreaSummary() {
+  const category = currentView === "all" ? filters.category : "all";
+  if (category === "all") {
+    areaSummary.hidden = true;
+    return;
+  }
+
+  const list = tasks.filter(function (task) {
+    return task.category === category;
+  });
+  const done = list.filter(function (task) {
+    return task.status === "completed";
+  }).length;
+  const open = list.length - done;
+  const percent = list.length === 0 ? 0 : Math.round((done / list.length) * 100);
+  const next = list
+    .filter(function (task) {
+      return task.status !== "completed" && task.dueDate;
+    })
+    .sort(function (a, b) {
+      return a.dueDate.localeCompare(b.dueDate);
+    })[0];
+
+  let nextText = "No upcoming deadline";
+  if (next) {
+    nextText = isOverdue(next)
+      ? `Overdue: ${escapeHtml(next.title)}`
+      : `Next due ${dayHeading(next.dueDate).toLowerCase() === "today" ? "today" : shortDayDate(next.dueDate)}: ${escapeHtml(next.title)}`;
+  }
+
+  areaSummary.hidden = false;
+  areaSummary.innerHTML = `
+    <div class="area-summary-head">
+      <span class="category-dot dot-${category}"></span>
+      <p class="area-summary-stats"><strong>${open}</strong> open <span aria-hidden="true">·</span> <strong>${done}</strong> done <span aria-hidden="true">·</span> ${percent}%</p>
+    </div>
+    <div class="area-bar" aria-hidden="true"><span class="area-fill dot-${category}" style="width: ${percent}%"></span></div>
+    <p class="area-summary-next ${next && isOverdue(next) ? "is-overdue" : ""}">${nextText}</p>
+  `;
 }
 
 // update the whole page
@@ -998,8 +1275,11 @@ function renderApp() {
   updateCounts();
   updateFilterState();
   if (currentView === "dashboard") {
-    renderFocus();
+    renderAgenda();
+    renderAreas();
+    renderWeek();
   }
+  renderAreaSummary();
   if (currentView === "focus") {
     renderFocusTasks();
   }
@@ -1036,7 +1316,8 @@ function addTask(data) {
     priority: data.priority,
     dueDate: data.dueDate,
     status: data.status,
-    createdAt: getTodayString()
+    createdAt: getTodayString(),
+    completedAt: data.status === "completed" ? getTodayString() : ""
   };
 
   tasks.push(newTask);
@@ -1060,7 +1341,7 @@ function editTask(id, data) {
   task.category = data.category;
   task.priority = data.priority;
   task.dueDate = data.dueDate;
-  task.status = data.status;
+  setTaskStatus(task, data.status);
 
   saveTasks();
   renderApp();
@@ -1089,7 +1370,7 @@ function moveTask(id, newStatus) {
   }
 
   const wasCompleted = task.status === "completed";
-  task.status = newStatus;
+  setTaskStatus(task, newStatus);
 
   saveTasks();
   renderApp();
@@ -1101,6 +1382,16 @@ function moveTask(id, newStatus) {
   } else {
     showToast(toastMessages[newStatus]);
   }
+}
+
+// change status and remember the day a task was completed
+function setTaskStatus(task, newStatus) {
+  if (newStatus === "completed" && task.status !== "completed") {
+    task.completedAt = getTodayString();
+  } else if (newStatus !== "completed") {
+    task.completedAt = "";
+  }
+  task.status = newStatus;
 }
 
 // complete task
@@ -1749,8 +2040,16 @@ function setupEventListeners() {
     });
   });
 
-  // needs attention rows open the task
-  focusList.addEventListener("click", handleCardClick);
+  // agenda rows open the task
+  agenda.addEventListener("click", handleCardClick);
+
+  // area rows open the category
+  areaList.addEventListener("click", function (event) {
+    const row = event.target.closest("[data-area]");
+    if (row) {
+      selectCategory(row.dataset.area);
+    }
+  });
 
   // show a hairline under the header once the page scrolls
   window.addEventListener("scroll", function () {
@@ -1951,6 +2250,13 @@ function loadFocus() {
     focusLog = { date: getTodayString(), sessions: 0, minutes: 0 };
   }
 
+  // keep today's minutes in the history as well
+  const history = getFocusHistory();
+  if (focusLog.minutes > (history[focusLog.date] || 0)) {
+    history[focusLog.date] = focusLog.minutes;
+    writeStorage(FOCUS_HISTORY_KEY, JSON.stringify(history));
+  }
+
   const state = readJson(FOCUS_KEY);
   if (state && modeLabels[state.mode] && ["idle", "running", "paused"].includes(state.status)) {
     focusState = {
@@ -1978,6 +2284,39 @@ function loadFocus() {
     }
   }
   updateTimerDisplay();
+}
+
+// minutes focused per day, like { "2026-11-14": 50 }
+function getFocusHistory() {
+  const saved = readJson(FOCUS_HISTORY_KEY);
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+    return {};
+  }
+  const clean = {};
+  Object.keys(saved).forEach(function (key) {
+    const minutes = Number(saved[key]);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key) && minutes > 0) {
+      clean[key] = minutes;
+    }
+  });
+  return clean;
+}
+
+// add finished focus minutes to today, only the last 60 days are kept
+function addFocusHistory(minutes) {
+  const history = getFocusHistory();
+  const today = getTodayString();
+  history[today] = (history[today] || 0) + minutes;
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 60);
+  const oldest = formatDateInput(cutoff);
+  Object.keys(history).forEach(function (key) {
+    if (key < oldest) {
+      delete history[key];
+    }
+  });
+  writeStorage(FOCUS_HISTORY_KEY, JSON.stringify(history));
 }
 
 // show the saved lengths in settings
@@ -2069,6 +2408,7 @@ function finishSession(completed) {
       focusLog.sessions += 1;
       focusLog.minutes += focusSettings.focus;
       saveFocusLog();
+      addFocusHistory(focusSettings.focus);
     }
     focusState.done = Math.min(focusState.done + 1, SESSIONS_PER_CYCLE);
   } else if (finishedMode === "long") {
