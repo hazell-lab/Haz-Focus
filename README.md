@@ -1,6 +1,6 @@
 # HazFocus
 
-A calm, editorial kanban-style task and productivity app built with plain HTML, CSS and JavaScript.
+A calm, focused kanban-style task and productivity app built with plain HTML, CSS and JavaScript.
 
 **[🔗 Live Demo](https://productivity-app-hazim.netlify.app/)** · [Source code](https://github.com/hazell-lab/Haz-Focus) · [Portfolio](https://hazimaqil-portfolio.netlify.app)
 
@@ -32,9 +32,13 @@ This project was built to practice core frontend skills without any framework or
 - **Keyboard shortcuts**: `N` new task, `/` search, `1`–`6` switch views, `Space` start or pause the timer, `R` reset it, `F` hide distractions, `Esc` close or clear
 - **Views** for Dashboard, All tasks, Today, Upcoming and Completed
 - **localStorage** for tasks, filters, theme, name and the focus timer (a running timer survives a page reload)
-- Paper (light) and night (dark) themes, toast notifications, empty states
+- Light and dark themes (cool slate with a teal accent), toast notifications, empty states
 - Responsive design with a bottom tab bar, swipeable board lanes and bottom-sheet dialogs on phones
 - Respects reduced-motion preferences
+
+## Design
+
+HazFocus uses one sans family (Inter) with weight and size for hierarchy, cool slate neutrals and a single calm teal accent (`#0f766e` in light, `#2dd4bf` in dark). Red is kept only for overdue and high-priority status. Cards and inputs use soft 10 to 16px corners, the board lanes are tinted surfaces and status chips are pills. All colour tokens live at the top of `css/style.css` and every text pair meets WCAG AA in both themes. Screenshots of the dashboard, board and focus view in both themes, at desktop and phone width, are in [`docs/slate-teal`](docs/slate-teal).
 
 ## Technologies
 
@@ -42,7 +46,7 @@ This project was built to practice core frontend skills without any framework or
 - CSS3 (custom properties, grid, flexbox, media queries)
 - JavaScript (vanilla, ES6)
 - localStorage
-- Google Fonts (Newsreader and Inter) and an inline SVG icon sprite
+- Google Fonts (Inter) and an inline SVG icon sprite
 
 ## JavaScript concepts demonstrated
 
